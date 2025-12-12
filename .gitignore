@@ -1,0 +1,13 @@
+# Ignorer les données brutes (on les re-téléchargera)
+*.csv
+
+# Ignorer les fichiers temporaires Python
+__pycache__/
+*.pyc
+
+# Ignorer les variables d'environnement (si tu en as plus tard)
+.env
+
+# Ignorer le dossier d'environnement virtuel (si tu en crées un)
+.venv/
+env/
