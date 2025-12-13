@@ -6,6 +6,7 @@ import os
 import sys
 import subprocess
 import time
+import train_nba
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import scoreboardv2
 
@@ -292,11 +293,27 @@ with tab4:
         st.info(f"📝 Historique : {get_last_modified_time('bets_history.csv')}")
     with col2:
         st.write("Mise à jour hebdo recommandée le Lundi.")
+        
+        # NOUVEAU SYSTÈME D'ENTRAÎNEMENT DIRECT
         if st.button("Lancer l'Entraînement Hebdo"):
-            status = st.status("Mise à jour...", expanded=True)
-            if run_script_step('train_nba.py', "XGBoost Training", status):
-                run_script_step('features_nba.py', "Recalcul Stats", status)
-                load_model_resource.clear()
-                status.update(label="IA à jour !", state="complete", expanded=False)
-                time.sleep(1)
-                st.rerun()
+            with st.status("Entraînement de l'IA...", expanded=True) as status:
+                
+                status.write("🧠 Démarrage de l'algorithme XGBoost...")
+                
+                # APPEL DIRECT DE LA FONCTION (Pas de subprocess)
+                success, message, acc = train_nba.train_model()
+                
+                if success:
+                    status.write(f"✅ Entraînement terminé ! Précision : {acc:.1%}")
+                    
+                    # On relance le calcul des stats pour être sûr
+                    run_script_step('features_nba.py', "Recalcul Stats", status)
+                    
+                    # On vide le cache et on recharge
+                    load_model_resource.clear()
+                    status.update(label=f"Succès ! Nouvelle précision : {acc:.1%}", state="complete", expanded=False)
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    status.update(label="Échec de l'entraînement", state="error")
+                    st.error(message)
