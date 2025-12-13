@@ -50,7 +50,14 @@ def train_model():
         # Entraînement
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
 
-        model = xgb.XGBClassifier(n_estimators=150, learning_rate=0.03, max_depth=4, eval_metric='logloss')
+        # on ajoute objective='binary:logistic' pour confirmer que c'est du Oui/Non
+        model = xgb.XGBClassifier(
+            n_estimators=150, 
+            learning_rate=0.03, 
+            max_depth=4, 
+            eval_metric='logloss',
+            objective='binary:logistic' 
+        )
         model.fit(X_train, y_train)
 
         # Évaluation
