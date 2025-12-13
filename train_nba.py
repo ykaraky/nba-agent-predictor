@@ -50,14 +50,20 @@ def train_model():
         # Entraînement
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
 
-        # on ajoute objective='binary:logistic' pour confirmer que c'est du Oui/Non
+        # On utilise une configuration standard
         model = xgb.XGBClassifier(
             n_estimators=150, 
             learning_rate=0.03, 
             max_depth=4, 
             eval_metric='logloss',
-            objective='binary:logistic' 
+            objective='binary:logistic'
         )
+        
+        # --- LE HACK MAGIQUE ---
+        # On force l'attribut manquant pour calmer Scikit-Learn sur le Cloud
+        model._estimator_type = "classifier"
+        # -----------------------
+
         model.fit(X_train, y_train)
 
         # Évaluation
