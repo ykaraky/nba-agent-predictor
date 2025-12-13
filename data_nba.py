@@ -3,7 +3,7 @@ from nba_api.stats.endpoints import leaguegamefinder
 import time
 
 def get_nba_data():
-    print("--- Démarrage de la récupération des données NBA (Version Four Factors) ---")
+    print("--- Demarrage de la recuperation des donnees NBA (Version Four Factors) ---")
     
     try:
         # On récupère les données brutes
@@ -23,27 +23,24 @@ def get_nba_data():
         games = games[games['GAME_DATE'] > '2023-01-01']
         games = games.sort_values('GAME_DATE')
         
-        # VÉRIFICATION : On s'assure d'avoir les ingrédients pour les Four Factors
-        # FGM/FGA (Tirs), FG3M (3 points), TOV (Pertes de balle), OREB (Rebonds Off), FTA (Lancers francs)
+        # VÉRIFICATION
         required_cols = ['GAME_ID', 'GAME_DATE', 'TEAM_ID', 'MATCHUP', 'WL', 
                          'PTS', 'FGM', 'FGA', 'FG3M', 'TOV', 'OREB', 'FTM', 'FTA']
         
-        # On vérifie juste que les colonnes existent (sécurité)
         missing = [col for col in required_cols if col not in games.columns]
         if missing:
-            print(f"⚠️ ATTENTION : Il manque ces colonnes vitales : {missing}")
+            print(f"[ATTENTION] Il manque ces colonnes vitales : {missing}")
         else:
-            print(f"✅ Toutes les stats 'Four Factors' sont présentes.")
+            print(f"[OK] Toutes les stats 'Four Factors' sont presentes.")
 
-        print(f"Succès ! {len(games)} matchs récupérés.")
+        print(f"Succes ! {len(games)} matchs recuperes.")
         
         # Sauvegarde
-        # On sauvegarde TOUTES les colonnes pour ne rien perdre
         games.to_csv('nba_games.csv', index=False)
-        print("Fichier 'nba_games.csv' mis à jour.")
+        print("Fichier 'nba_games.csv' mis a jour.")
         
     except Exception as e:
-        print("\n❌ Erreur de connexion :")
+        print("\n[ERREUR] Probleme de connexion :")
         print(e)
         exit(1)
 
