@@ -1,5 +1,5 @@
 # Ignorer les données brutes (on les re-téléchargera)
-*.csv
+# *.csv
 
 # Ignorer les fichiers temporaires Python
 __pycache__/
