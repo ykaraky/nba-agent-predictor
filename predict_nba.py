@@ -10,7 +10,8 @@ import csv
 TARGET_DATE = datetime.now().strftime('%Y-%m-%d')
 HISTORY_FILE = 'bets_history.csv'
 
-print(f"\n🏀 --- PRÉDICTEUR HYBRIDE (Date : {TARGET_DATE}) --- 🏀")
+print(f"\n🏀 --- PRÉDICTEUR HYBRIDE (Version Four Factors) --- 🏀")
+print(f"Date cible : {TARGET_DATE}")
 
 # 1. Chargement
 print("Chargement du cerveau et de l'historique...")
@@ -26,24 +27,20 @@ try:
     
 except Exception as e:
     print(f"❌ Erreur critique de chargement : {e}")
+    print("Conseil : As-tu bien relancé 'train_nba.py' après avoir mis à jour les features ?")
     exit()
 
-# 2. Fonction de Sauvegarde (NOUVEAU)
+# 2. Fonction de Sauvegarde
 def save_to_history(date, home, away, winner, conf, model_type="Auto"):
-    # Vérifier si le fichier existe, sinon créer l'en-tête
     file_exists = os.path.isfile(HISTORY_FILE)
-    
     with open(HISTORY_FILE, mode='a', newline='') as file:
         writer = csv.writer(file)
         if not file_exists:
             writer.writerow(['Date', 'Home', 'Away', 'Predicted_Winner', 'Confidence', 'Type', 'Result'])
-        
-        # On écrit la ligne (Result est vide pour l'instant)
         writer.writerow([date, home, away, winner, f"{conf:.1f}%", model_type, ''])
-    
-    print(f"   💾 Pronostic enregistré dans {HISTORY_FILE}")
+    print(f"   💾 Enregistré dans {HISTORY_FILE}")
 
-# 3. Fonction Stats
+# 3. Fonction Stats (MISE À JOUR FOUR FACTORS)
 def get_team_stats(team_abbr_or_id, target_date_str):
     if str(team_abbr_or_id).isdigit():
         team_id = int(team_abbr_or_id)
@@ -63,9 +60,12 @@ def get_team_stats(team_abbr_or_id, target_date_str):
     target_date = pd.to_datetime(target_date_str)
     days_rest = (target_date - last_game_date).days
     
+    # ICI : On récupère les Four Factors au lieu des Points
     return {
         'NAME': team_name,
-        'PTS_LAST_5': last_game['PTS_LAST_5'],
+        'EFG_PCT_LAST_5': last_game['EFG_PCT_LAST_5'],
+        'TOV_PCT_LAST_5': last_game['TOV_PCT_LAST_5'],
+        'ORB_RAW_LAST_5': last_game['ORB_RAW_LAST_5'],
         'WIN_LAST_5': last_game['WIN_LAST_5'],
         'DAYS_REST': min(days_rest, 7),
         'LAST_GAME_DATE': last_game_date
@@ -81,20 +81,28 @@ def make_prediction(home_id_or_name, away_id_or_name, mode="Auto"):
         
         print(f"\n📊 {home_name} (Dom) vs {away_name} (Ext)")
         
+        # Alerte Fatigue
         if stats_home['DAYS_REST'] <= 1: print(f"  ⚠️ FATIGUE : {home_name} est en Back-to-back !")
         if stats_away['DAYS_REST'] <= 1: print(f"  ⚠️ FATIGUE : {away_name} est en Back-to-back !")
         
+        # MISE À JOUR : On construit le DataFrame avec les Four Factors
+        # Cela doit correspondre EXACTEMENT aux colonnes de train_nba.py
         input_data = pd.DataFrame([{
-            'PTS_LAST_5_HOME': stats_home['PTS_LAST_5'],
-            'PTS_LAST_5_AWAY': stats_away['PTS_LAST_5'],
-            'WIN_LAST_5_HOME': stats_home['WIN_LAST_5'],
-            'WIN_LAST_5_AWAY': stats_away['WIN_LAST_5'],
-            'DAYS_REST_HOME': stats_home['DAYS_REST'],
-            'DAYS_REST_AWAY': stats_away['DAYS_REST'],
-            'DIFF_PTS': stats_home['PTS_LAST_5'] - stats_away['PTS_LAST_5'],
+            'EFG_PCT_LAST_5_HOME': stats_home['EFG_PCT_LAST_5'],
+            'EFG_PCT_LAST_5_AWAY': stats_away['EFG_PCT_LAST_5'],
+            'TOV_PCT_LAST_5_HOME': stats_home['TOV_PCT_LAST_5'],
+            'TOV_PCT_LAST_5_AWAY': stats_away['TOV_PCT_LAST_5'],
+            'ORB_RAW_LAST_5_HOME': stats_home['ORB_RAW_LAST_5'],
+            'ORB_RAW_LAST_5_AWAY': stats_away['ORB_RAW_LAST_5'],
+            
+            'DIFF_EFG': stats_home['EFG_PCT_LAST_5'] - stats_away['EFG_PCT_LAST_5'],
+            'DIFF_TOV': stats_home['TOV_PCT_LAST_5'] - stats_away['TOV_PCT_LAST_5'],
+            'DIFF_ORB': stats_home['ORB_RAW_LAST_5'] - stats_away['ORB_RAW_LAST_5'],
+            'DIFF_WIN': stats_home['WIN_LAST_5'] - stats_away['WIN_LAST_5'],
             'DIFF_REST': stats_home['DAYS_REST'] - stats_away['DAYS_REST']
         }])
         
+        # Prédiction
         probs = model.predict_proba(input_data)[0]
         prob_home = probs[1]
         
@@ -107,12 +115,10 @@ def make_prediction(home_id_or_name, away_id_or_name, mode="Auto"):
             winner = away_name
             print(f"🏆 VAINQUEUR : {away_name} ({conf:.1f}%)")
             
-        # Appel de la sauvegarde
         save_to_history(TARGET_DATE, home_name, away_name, winner, conf, mode)
-        
         return winner, conf
     else:
-        print("❌ Données historiques manquantes.")
+        print(f"❌ Données manquantes pour {home_id_or_name} ou {away_id_or_name}")
         return None, None
 
 # --- BOUCLES D'EXÉCUTION ---
@@ -130,8 +136,8 @@ try:
             print("-" * 20)
     else:
         print("⚠️ Aucun match trouvé automatiquement.")
-except Exception:
-    print("⚠️ Mode automatique indisponible.")
+except Exception as e:
+    print(f"⚠️ Mode automatique indisponible ({e}).")
 
 print("\n" + "="*50)
 print("🖐️  MODE MANUEL")
