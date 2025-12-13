@@ -10,10 +10,9 @@ from nba_api.stats.static import teams
 from nba_api.stats.endpoints import scoreboardv2
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="NBA Manager v3.1", page_icon="🏀", layout="wide")
+st.set_page_config(page_title="NBA Manager v3.2", page_icon="🏀", layout="wide")
 
-# --- MEMOIRE DE SESSION (PERSISTANCE) ---
-# C'est ici qu'on stocke les résultats pour qu'ils ne disparaissent pas
+# --- MEMOIRE DE SESSION ---
 if 'games_today' not in st.session_state:
     st.session_state['games_today'] = None
 if 'last_run_date' not in st.session_state:
@@ -45,10 +44,10 @@ def load_data_resource():
 
 def get_team_list():
     nba_teams = teams.get_teams()
+    # Format : "OKC - Thunder"
     return {f"{t['abbreviation']} - {t['nickname']}": t['id'] for t in nba_teams}
 
 def get_last_modified_time(filename):
-    """Récupère la date de modification d'un fichier pour savoir quand on l'a mis à jour"""
     if os.path.exists(filename):
         timestamp = os.path.getmtime(filename)
         return datetime.fromtimestamp(timestamp).strftime('%d/%m/%Y à %H:%M')
@@ -99,13 +98,12 @@ def save_bet(home, away, winner, conf, type_bet):
         with open('bets_history.csv', 'w') as f:
             f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result\n")
     
-    # On vérifie les doublons AVANT d'écrire pour éviter de spammer le fichier
     try:
         current_df = pd.read_csv('bets_history.csv')
         today = datetime.now().strftime('%Y-%m-%d')
-        # Si une ligne existe déjà avec la même date, home et away, on n'écrit pas
+        # On vérifie les doublons sur la date et les équipes
         exists = not current_df[(current_df['Date'] == today) & (current_df['Home'] == home) & (current_df['Away'] == away)].empty
-        if exists: return # On quitte silencieusement
+        if exists: return 
     except:
         pass
 
@@ -115,27 +113,28 @@ def save_bet(home, away, winner, conf, type_bet):
 
 # --- INTERFACE ---
 
-st.title("🏀 NBA Manager v3.1")
+st.title("🏀 NBA Manager v3.2")
 
 model = load_model_resource()
 df = load_data_resource()
 teams_dict = get_team_list()
-id_to_name = {v: k.split(' - ')[0] for k, v in teams_dict.items()}
+
+# --- COSMÉTIQUE 1 : NOMS COMPLETS ---
+# On remplace le tiret par un espace pour avoir "OKC Thunder"
+id_to_name = {v: k.replace(' - ', ' ') for k, v in teams_dict.items()}
 
 tab1, tab2, tab3, tab4 = st.tabs(["🌞 Matchs du Jour", "🔮 Manuel", "📊 Bilan", "⚙️ Maintenance"])
 
-# --- TAB 1 : AUTO PREDICT (Avec Mémoire) ---
+# --- TAB 1 : AUTO PREDICT ---
 with tab1:
     st.header("Routine Matinale")
     
-    # Affichage du dernier run si existant
     if st.session_state['last_run_date']:
         st.caption(f"Dernière analyse : {st.session_state['last_run_date']}")
 
     if st.button("🚀 LANCER LA JOURNEE", type="primary"):
         status_box = st.status("Traitement en cours...", expanded=True)
         
-        # 1. Pipeline de mise à jour
         if run_script_step('data_nba.py', "Mise a jour Donnees", status_box):
             if run_script_step('features_nba.py', "Calcul Stats", status_box):
                 run_script_step('verify_bets.py', "Verification Paris", status_box)
@@ -144,32 +143,23 @@ with tab1:
                 df = load_data_resource()
                 
                 status_box.write("🔎 Recherche matchs du soir...")
-                
-                # 2. Récupération Matchs
                 try:
                     board = scoreboardv2.ScoreboardV2(game_date=datetime.now().strftime('%Y-%m-%d'))
                     games_raw = board.game_header.get_data_frame()
                     games_clean = games_raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
                     
-                    # 3. Stockage en Session (C'est ça qui rend persistant !)
                     st.session_state['games_today'] = games_clean
                     st.session_state['last_run_date'] = datetime.now().strftime('%H:%M:%S')
-                    
-                    status_box.update(label="Terminé !", state="complete", expanded=False) # On ferme la boite
-                    
+                    status_box.update(label="Terminé !", state="complete", expanded=False)
                 except Exception as e:
                     st.error(f"Erreur API : {e}")
 
     st.divider()
 
-    # AFFICHAGE PERSISTANT
-    # On vérifie si on a des matchs en mémoire
     if st.session_state['games_today'] is not None:
         games_df = st.session_state['games_today']
-        
         if not games_df.empty:
             st.success(f"✅ {len(games_df)} matchs pour ce soir")
-            
             for _, game in games_df.iterrows():
                 h_id, a_id = game['HOME_TEAM_ID'], game['VISITOR_TEAM_ID']
                 h_name = id_to_name.get(h_id, str(h_id))
@@ -193,91 +183,117 @@ with tab1:
                         
                         st.markdown(f"<h3 style='text-align: center; color: {col}'>{win}</h3>", unsafe_allow_html=True)
                         st.progress(int(conf), f"Confiance: {conf:.1f}%")
-                        
-                        # Sauvegarde Auto sécurisée (anti-doublon)
                         save_bet(h_name, a_name, win, conf, "Auto")
                 st.divider()
         else:
-            st.info("Aucun match trouvé pour ce soir.")
+            st.info("Aucun match trouvé.")
     else:
         st.write("En attente de lancement...")
 
-# --- TAB 2 : MANUEL (Vide par défaut) ---
+# --- TAB 2 : MANUEL ---
 with tab2:
     if model is None or df is None:
         st.warning("Donnees manquantes.")
     else:
         c1, c2 = st.columns(2)
-        # index=None force l'utilisateur à choisir
         with c1: h_choice = st.selectbox("Domicile", list(teams_dict.keys()), index=None, placeholder="Choisis l'équipe...")
         with c2: a_choice = st.selectbox("Extérieur", list(teams_dict.keys()), index=None, placeholder="Choisis l'équipe...")
             
-        # Le bouton n'apparait que si les équipes sont choisies
         if h_choice and a_choice:
             if st.button("Analyser le Duel"):
-                prob, d = get_prediction(model, df, teams_dict[h_choice], teams_dict[a_choice])
+                h_id, a_id = teams_dict[h_choice], teams_dict[a_choice]
+                # Nom propre pour affichage
+                h_nice = h_choice.replace(' - ', ' ')
+                a_nice = a_choice.replace(' - ', ' ')
+                
+                prob, d = get_prediction(model, df, h_id, a_id)
                 if prob is not None:
                     if prob > 0.5:
-                        win, conf = h_choice.split(' - ')[0], prob*100
+                        win, conf = h_nice, prob*100
                         st.success(f"🏆 {win} ({conf:.1f}%)")
                     else:
-                        win, conf = a_choice.split(' - ')[0], (1-prob)*100
+                        win, conf = a_nice, (1-prob)*100
                         st.success(f"🏆 {win} ({conf:.1f}%)")
-                    save_bet(h_choice.split(' - ')[0], a_choice.split(' - ')[0], win, conf, "Manual")
+                    save_bet(h_nice, a_nice, win, conf, "Manual")
 
-# --- TAB 3 : BILAN (Nettoyage Amélioré) ---
+# --- TAB 3 : BILAN (REFACTORISÉ) ---
 with tab3:
     st.header("Historique")
     if os.path.exists('bets_history.csv'):
+        # 1. Chargement et Préparation
         hist = pd.read_csv('bets_history.csv')
+        hist_sorted = hist.sort_index(ascending=False) # Plus récents en haut
         
-        # 1. Gros Bouton pour nettoyer les doublons massifs
-        col_clean, col_kpi = st.columns([1, 3])
-        with col_clean:
-            if st.button("🧹 Nettoyer tous les doublons"):
-                before = len(hist)
-                hist = hist.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last')
-                hist.to_csv('bets_history.csv', index=False)
-                after = len(hist)
-                st.toast(f"{before - after} doublons supprimés !", icon="✨")
-                time.sleep(1)
-                st.rerun()
-
-        st.dataframe(hist.sort_index(ascending=False))
+        # 2. Ajout colonne de sélection
+        # On utilise st.data_editor pour avoir des cases à cocher
+        # On crée une copie pour l'édition avec une colonne 'Select' à True/False
+        hist_sorted.insert(0, "Select", False)
         
-        st.divider()
-        st.subheader("🗑️ Suppression sélective")
-        
-        # Multiselect pour en supprimer plusieurs d'un coup
-        rows_to_del = st.multiselect(
-            "Sélectionner les lignes à supprimer (par Index)",
-            options=hist.index.tolist(),
-            placeholder="Ex: 0, 1, 5..."
+        # --- COSMÉTIQUE 3 : TABLEAU INTERACTIF ---
+        edited_df = st.data_editor(
+            hist_sorted,
+            column_config={
+                "Select": st.column_config.CheckboxColumn(
+                    "Sél.",
+                    help="Coche pour supprimer",
+                    default=False,
+                )
+            },
+            disabled=["Date", "Home", "Away", "Predicted_Winner", "Confidence", "Type", "Result"],
+            hide_index=True,
         )
         
-        if rows_to_del:
-            if st.button(f"Supprimer {len(rows_to_del)} ligne(s)"):
-                hist = hist.drop(rows_to_del)
-                hist.to_csv('bets_history.csv', index=False)
-                st.success("Suppression effectuée.")
-                time.sleep(0.5)
-                st.rerun()
+        # 3. Zone de nettoyage discrète
+        st.write("")
+        with st.expander("🗑️ Zone de nettoyage (Doublons & Suppression)"):
+            c_clean1, c_clean2 = st.columns(2)
+            
+            with c_clean1:
+                if st.button("Supprimer la sélection"):
+                    # On récupère les lignes cochées
+                    to_delete = edited_df[edited_df.Select == True]
+                    if not to_delete.empty:
+                        # On supprime du dataframe original en utilisant les index (qui sont cachés mais existent)
+                        # Attention: edited_df a les mêmes index que hist_sorted
+                        indices_to_drop = to_delete.index
+                        hist_final = hist.drop(indices_to_drop)
+                        
+                        hist_final.to_csv('bets_history.csv', index=False)
+                        st.success(f"{len(to_delete)} ligne(s) supprimée(s).")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.warning("Aucune ligne cochée.")
 
-# --- TAB 4 : MAINTENANCE (Avec Dates) ---
+            with c_clean2:
+                if st.button("🧹 Nettoyer tous les doublons auto"):
+                    before = len(hist)
+                    hist = hist.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last')
+                    hist.to_csv('bets_history.csv', index=False)
+                    after = len(hist)
+                    st.toast(f"{before - after} doublons supprimés !", icon="✨")
+                    time.sleep(1)
+                    st.rerun()
+
+        # KPI
+        st.divider()
+        vals = hist[hist['Result'].isin(['GAGNE', 'PERDU'])]
+        if not vals.empty:
+            wins = len(vals[vals['Result']=='GAGNE'])
+            acc = (wins/len(vals))*100
+            st.metric("Précision Globale", f"{acc:.1f}%", f"{len(vals)} paris terminés")
+
+# --- TAB 4 : MAINTENANCE ---
 with tab4:
     st.header("État du Système")
-    
-    col_info, col_action = st.columns(2)
-    
-    with col_info:
-        st.info(f"🧠 **Cerveau (Modèle)** : {get_last_modified_time('nba_predictor.json')}")
-        st.info(f"📂 **Données (CSV)** : {get_last_modified_time('nba_games_ready.csv')}")
-        st.info(f"📝 **Historique** : {get_last_modified_time('bets_history.csv')}")
-
-    with col_action:
-        st.write("Si les dates à gauche semblent vieilles (> 7 jours), lance un entraînement.")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(f"🧠 Modèle : {get_last_modified_time('nba_predictor.json')}")
+        st.info(f"📝 Historique : {get_last_modified_time('bets_history.csv')}")
+    with col2:
+        st.write("Mise à jour hebdo recommandée le Lundi.")
         if st.button("Lancer l'Entraînement Hebdo"):
-            status = st.status("Mise à jour de l'intelligence...", expanded=True)
+            status = st.status("Mise à jour...", expanded=True)
             if run_script_step('train_nba.py', "XGBoost Training", status):
                 run_script_step('features_nba.py', "Recalcul Stats", status)
                 load_model_resource.clear()
