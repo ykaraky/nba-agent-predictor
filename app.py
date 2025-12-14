@@ -217,63 +217,61 @@ with tab2:
                         st.success(f"🏆 {win} ({conf:.1f}%)")
                     save_bet(h_nice, a_nice, win, conf, "Manual")
 
-# --- TAB 3 : BILAN (REFACTORISÉ) ---
+# --- TAB 3 : BILAN ---
 with tab3:
     st.header("Historique")
     if os.path.exists('bets_history.csv'):
-        # 1. Chargement et Préparation
         hist = pd.read_csv('bets_history.csv')
-        hist_sorted = hist.sort_index(ascending=False) # Plus récents en haut
         
-        # 2. Ajout colonne de sélection
-        # On utilise st.data_editor pour avoir des cases à cocher
-        # On crée une copie pour l'édition avec une colonne 'Select' à True/False
+        # FIX CRITIQUE (Colonne manquante)
+        if 'Real_Winner' not in hist.columns:
+            hist['Real_Winner'] = "En attente..."
+
+        # Tri
+        hist_sorted = hist.sort_index(ascending=False)
+        
+        # Checkbox
         hist_sorted.insert(0, "Select", False)
         
-        # --- COSMÉTIQUE 3 : TABLEAU INTERACTIF ---
+        # --- CONFIGURATION SIMPLE ---
+        column_config = {
+            "Select": st.column_config.CheckboxColumn("Sél.", width="small"),
+            "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
+            "Predicted_Winner": st.column_config.TextColumn("Prono IA"),
+            "Real_Winner": st.column_config.TextColumn("Vainqueur Réel"),
+            "Result": st.column_config.TextColumn("Résultat"),
+            "Confidence": st.column_config.TextColumn("Confiance"), # Retour au texte simple
+        }
+        
+        # On affiche directement la colonne 'Confidence' d'origine
+        cols_to_show = ["Select", "Date", "Home", "Away", "Predicted_Winner", "Real_Winner", "Result", "Confidence", "Type"]
+
         edited_df = st.data_editor(
-            hist_sorted,
-            column_config={
-                "Select": st.column_config.CheckboxColumn(
-                    "Sél.",
-                    help="Coche pour supprimer",
-                    default=False,
-                )
-            },
-            disabled=["Date", "Home", "Away", "Predicted_Winner", "Confidence", "Type", "Result"],
+            hist_sorted[cols_to_show],
+            column_config=column_config,
             hide_index=True,
+            disabled=[c for c in cols_to_show if c != "Select"],
         )
         
-        # 3. Zone de nettoyage discrète
+        # Zone nettoyage
         st.write("")
-        with st.expander("🗑️ Zone de nettoyage (Doublons & Suppression)"):
-            c_clean1, c_clean2 = st.columns(2)
-            
-            with c_clean1:
+        with st.expander("🗑️ Zone de nettoyage"):
+            c1, c2 = st.columns(2)
+            with c1:
                 if st.button("Supprimer la sélection"):
-                    # On récupère les lignes cochées
                     to_delete = edited_df[edited_df.Select == True]
                     if not to_delete.empty:
-                        # On supprime du dataframe original en utilisant les index (qui sont cachés mais existent)
-                        # Attention: edited_df a les mêmes index que hist_sorted
-                        indices_to_drop = to_delete.index
-                        hist_final = hist.drop(indices_to_drop)
-                        
+                        original_indexes = to_delete.index
+                        hist_final = hist.drop(original_indexes)
+                        if 'Select' in hist_final.columns:
+                            hist_final = hist_final.drop(columns=['Select'])
                         hist_final.to_csv('bets_history.csv', index=False)
-                        st.success(f"{len(to_delete)} ligne(s) supprimée(s).")
+                        st.success("Supprimé !")
                         time.sleep(1)
                         st.rerun()
-                    else:
-                        st.warning("Aucune ligne cochée.")
-
-            with c_clean2:
-                if st.button("🧹 Nettoyer tous les doublons auto"):
-                    before = len(hist)
-                    hist = hist.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last')
-                    hist.to_csv('bets_history.csv', index=False)
-                    after = len(hist)
-                    st.toast(f"{before - after} doublons supprimés !", icon="✨")
-                    time.sleep(1)
+            with c2:
+                if st.button("🧹 Nettoyer doublons"):
+                    hist.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last').to_csv('bets_history.csv', index=False)
                     st.rerun()
 
         # KPI
