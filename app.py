@@ -126,70 +126,87 @@ id_to_name = {v: k.replace(' - ', ' ') for k, v in teams_dict.items()}
 
 tab1, tab2, tab3, tab4 = st.tabs(["🌞 Matchs du Jour", "🔮 Manuel", "📊 Bilan", "⚙️ Maintenance"])
 
-# --- TAB 1 : AUTO PREDICT ---
+# --- TAB 1 : AUTO PREDICT (INTELLIGENT) ---
 with tab1:
     st.header("Routine Matinale")
     
-    if st.session_state['last_run_date']:
-        st.caption(f"Dernière analyse : {st.session_state['last_run_date']}")
-
-    if st.button("🚀 LANCER LA JOURNEE", type="primary"):
-        status_box = st.status("Traitement en cours...", expanded=True)
+    # 1. Vérification : A-t-on DÉJÀ des pronos pour aujourd'hui dans le fichier ?
+    todays_bets = None
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    
+    if os.path.exists('bets_history.csv'):
+        hist_check = pd.read_csv('bets_history.csv')
+        # On filtre sur la date d'aujourd'hui
+        todays_bets = hist_check[hist_check['Date'] == today_str]
+    
+    # 2. Si des paris existent déjà, on les affiche direct !
+    if todays_bets is not None and not todays_bets.empty:
+        st.success(f"✅ La routine a déjà tourné ! {len(todays_bets)} pronostics générés pour ce soir.")
+        st.caption("Données chargées depuis l'historique.")
         
-        if run_script_step('data_nba.py', "Mise a jour Donnees", status_box):
-            if run_script_step('features_nba.py', "Calcul Stats", status_box):
-                run_script_step('verify_bets.py', "Verification Paris", status_box)
-                
-                load_data_resource.clear()
-                df = load_data_resource()
-                
-                status_box.write("🔎 Recherche matchs du soir...")
-                try:
-                    board = scoreboardv2.ScoreboardV2(game_date=datetime.now().strftime('%Y-%m-%d'))
-                    games_raw = board.game_header.get_data_frame()
-                    games_clean = games_raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
+        st.divider()
+        
+        for _, row in todays_bets.iterrows():
+            # On reconstruit l'affichage sympa
+            home = row['Home']
+            away = row['Away']
+            winner = row['Predicted_Winner']
+            conf_str = row['Confidence'] # ex: "72.2%"
+            
+            # Gestion couleur
+            col = "green" if winner == home else "red"
+            
+            # Gestion jauge
+            try:
+                val = float(conf_str.replace('%', ''))
+            except:
+                val = 50.0
+            
+            c1, c2, c3 = st.columns([1, 2, 1])
+            with c1: st.write(f"**{home}**")
+            with c3: st.write(f"**{away}**")
+            with c2:
+                st.markdown(f"<h3 style='text-align: center; color: {col}'>{winner}</h3>", unsafe_allow_html=True)
+                st.progress(int(val), f"Confiance: {conf_str}")
+            
+            st.divider()
+            
+        if st.button("Forcer une nouvelle analyse (Rerun)"):
+            # Petit bouton caché au cas où tu veux vraiment relancer
+            st.session_state['force_rerun'] = True
+            st.rerun()
+
+    # 3. Sinon (ou si forcé), on affiche le bouton de lancement classique
+    if (todays_bets is None or todays_bets.empty) or 'force_rerun' in st.session_state:
+        
+        if st.session_state.get('last_run_date'):
+            st.caption(f"Dernière analyse session : {st.session_state['last_run_date']}")
+
+        if st.button("🚀 LANCER LA JOURNEE", type="primary"):
+            # ... (Le code du bouton reste identique à avant) ...
+            status_box = st.status("Traitement en cours...", expanded=True)
+            
+            if run_script_step('data_nba.py', "Mise a jour Donnees", status_box):
+                if run_script_step('features_nba.py', "Calcul Stats", status_box):
+                    run_script_step('verify_bets.py', "Verification Paris", status_box)
                     
-                    st.session_state['games_today'] = games_clean
-                    st.session_state['last_run_date'] = datetime.now().strftime('%H:%M:%S')
-                    status_box.update(label="Terminé !", state="complete", expanded=False)
-                except Exception as e:
-                    st.error(f"Erreur API : {e}")
-
-    st.divider()
-
-    if st.session_state['games_today'] is not None:
-        games_df = st.session_state['games_today']
-        if not games_df.empty:
-            st.success(f"✅ {len(games_df)} matchs pour ce soir")
-            for _, game in games_df.iterrows():
-                h_id, a_id = game['HOME_TEAM_ID'], game['VISITOR_TEAM_ID']
-                h_name = id_to_name.get(h_id, str(h_id))
-                a_name = id_to_name.get(a_id, str(a_id))
-                
-                prob, det = get_prediction(model, df, h_id, a_id)
-                
-                if prob is not None:
-                    c1, c2, c3 = st.columns([1, 2, 1])
-                    with c1: 
-                        st.write(f"**{h_name}**")
-                        if det['rh']<=1: st.error("Fatigue (B2B)")
-                    with c3: 
-                        st.write(f"**{a_name}**")
-                        if det['ra']<=1: st.error("Fatigue (B2B)")
-                    with c2:
-                        if prob > 0.5:
-                            win, conf, col = h_name, prob*100, "green"
-                        else:
-                            win, conf, col = a_name, (1-prob)*100, "red"
+                    load_data_resource.clear()
+                    df = load_data_resource()
+                    
+                    status_box.write("🔎 Recherche matchs du soir...")
+                    try:
+                        board = scoreboardv2.ScoreboardV2(game_date=datetime.now().strftime('%Y-%m-%d'))
+                        games_raw = board.game_header.get_data_frame()
+                        games_clean = games_raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
                         
-                        st.markdown(f"<h3 style='text-align: center; color: {col}'>{win}</h3>", unsafe_allow_html=True)
-                        st.progress(int(conf), f"Confiance: {conf:.1f}%")
-                        save_bet(h_name, a_name, win, conf, "Auto")
-                st.divider()
-        else:
-            st.info("Aucun match trouvé.")
-    else:
-        st.write("En attente de lancement...")
+                        st.session_state['games_today'] = games_clean
+                        st.session_state['last_run_date'] = datetime.now().strftime('%H:%M:%S')
+                        status_box.update(label="Terminé !", state="complete", expanded=False)
+                        # On supprime le flag de force pour revenir à l'affichage normal
+                        if 'force_rerun' in st.session_state: del st.session_state['force_rerun']
+                        st.rerun() # On recharge pour afficher les résultats via le bloc du haut
+                    except Exception as e:
+                        st.error(f"Erreur API : {e}")
 
 # --- TAB 2 : MANUEL ---
 with tab2:
