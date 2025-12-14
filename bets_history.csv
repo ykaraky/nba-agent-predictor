@@ -1,3 +1,12 @@
 Date,Home,Away,Predicted_Winner,Confidence,Type,Result
 2025-12-13,ORL Magic,NYK Knicks,NYK Knicks,58.0%,Auto,
 2025-12-13,OKC Thunder,SAS Spurs,OKC Thunder,72.2%,Auto,
+
+2025-12-14,IND Pacers,WAS Wizards,IND Pacers,75.1%,Auto,
+2025-12-14,CLE Cavaliers,CHA Hornets,CLE Cavaliers,69.0%,Auto,
+2025-12-14,ATL Hawks,PHI 76ers,ATL Hawks,57.4%,Auto,
+2025-12-14,BKN Nets,MIL Bucks,BKN Nets,53.7%,Auto,
+2025-12-14,MIN Timberwolves,SAC Kings,MIN Timberwolves,74.6%,Auto,
+2025-12-14,CHI Bulls,NOP Pelicans,NOP Pelicans,61.1%,Auto,
+2025-12-14,PHX Suns,LAL Lakers,PHX Suns,56.3%,Auto,
+2025-12-14,POR Trail Blazers,GSW Warriors,GSW Warriors,50.2%,Auto,
