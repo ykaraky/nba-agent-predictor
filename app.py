@@ -10,7 +10,7 @@ from nba_api.stats.static import teams
 from nba_api.stats.endpoints import scoreboardv2
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="NBA Manager v4.1", page_icon="🏀", layout="wide")
+st.set_page_config(page_title="NBA Manager v4.2", page_icon="🏀", layout="wide")
 
 st.markdown("""
 <style>
@@ -21,7 +21,6 @@ st.markdown("""
         margin-bottom: 10px;
         text-align: center;
     }
-    div[data-testid="stMetricValue"] { font-size: 1.2rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -131,13 +130,12 @@ id_to_name = {v: k.replace(' - ', ' ') for k, v in teams_dict.items()}
 
 # --- INTERFACE ---
 
-st.title("🏀 NBA Manager v4.1")
+st.title("🏀 NBA Manager v4.2")
 
 tab1, tab2, tab3, tab4 = st.tabs(["🌞 Matchs", "📊 Bilan", "🔮 Manuel", "⚙️ Admin"])
 
 # --- TAB 1 : DASHBOARD ---
 with tab1:
-    # Logique de chargement intelligent
     today_str = datetime.now().strftime('%Y-%m-%d')
     if st.session_state['games_today'] is None and os.path.exists('bets_history.csv'):
         try:
@@ -169,7 +167,9 @@ with tab1:
                         st.session_state['last_run_date'] = datetime.now().strftime('%H:%M')
                         status.update(label="Prêt !", state="complete", expanded=False)
                         st.rerun()
-                    except: status.error("Erreur API")
+                    except Exception as e:
+                        status.update(label="Erreur API", state="error")
+                        st.error(f"Détail erreur : {e}")
     with col_txt:
         if st.session_state['last_run_date']:
             st.success(f"✅ Routine effectuée ({st.session_state['last_run_date']})")
@@ -225,7 +225,7 @@ with tab1:
     else:
         st.write("En attente...")
 
-# --- TAB 2 : BILAN ---
+# --- TAB 2 : BILAN (CORRIGÉ) ---
 with tab2:
     if os.path.exists('bets_history.csv'):
         hist = pd.read_csv('bets_history.csv')
@@ -235,14 +235,15 @@ with tab2:
         hist_sorted = hist.sort_index(ascending=False)
         hist_sorted.insert(len(hist_sorted.columns), "Select", False)
         
-        # --- CONFIGURATION MISE A JOUR ---
+        # --- CONFIGURATION STRICTE TEXTE ---
         col_cfg = {
             "Select": st.column_config.CheckboxColumn("🗑️", width="small"),
-            "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"), # Format Année
-            "Predicted_Winner": st.column_config.TextColumn("Prono IA"),      # Nom Propre
-            "Real_Winner": st.column_config.TextColumn("Vainqueur Réel"),     # Nom Propre
+            "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
+            "Predicted_Winner": st.column_config.TextColumn("Prono IA"),
+            "Real_Winner": st.column_config.TextColumn("Vainqueur Réel"),
             "Result": st.column_config.TextColumn("Résultat", width="small"),
-            "Confidence": st.column_config.TextColumn("Confiance"),           # Texte Simple (Plus de jauge)
+            # ICI : On force l'affichage en TEXTE simple
+            "Confidence": st.column_config.TextColumn("Confiance"), 
         }
         
         cols_order = ["Date", "Home", "Away", "Predicted_Winner", "Real_Winner", "Result", "Confidence", "Type", "Select"]
@@ -258,9 +259,16 @@ with tab2:
         with st.expander("Outils de nettoyage"):
             c1, c2 = st.columns(2)
             if c1.button("Supprimer la sélection"):
-                to_del = edited_df[edited_df.Select == True].index
-                if not to_del.empty:
-                    hist.drop(to_del).drop(columns=['Select'], errors='ignore').to_csv('bets_history.csv', index=False)
+                rows_to_delete = edited_df[edited_df.Select == True]
+                if not rows_to_delete.empty:
+                    original_csv = pd.read_csv('bets_history.csv')
+                    for index, row in rows_to_delete.iterrows():
+                        original_csv = original_csv[
+                            ~((original_csv['Date'] == row['Date']) & 
+                              (original_csv['Home'] == row['Home']) & 
+                              (original_csv['Away'] == row['Away']))
+                        ]
+                    original_csv.to_csv('bets_history.csv', index=False)
                     st.success("Fait."); time.sleep(0.5); st.rerun()
             if c2.button("Supprimer doublons"):
                 hist.drop_duplicates(subset=['Date','Home','Away'], keep='last').to_csv('bets_history.csv', index=False)

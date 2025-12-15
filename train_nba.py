@@ -77,3 +77,10 @@ def train_model():
 
     except Exception as e:
         return False, f"Erreur technique : {str(e)}", 0
+
+# AJOUTER CECI À LA FIN DU FICHIER :
+if __name__ == "__main__":
+    success, message, accuracy = train_model()
+    print(f"\nRésultat : {message}")
+    if success:
+        print(f"Précision du modèle : {accuracy:.1%}")
