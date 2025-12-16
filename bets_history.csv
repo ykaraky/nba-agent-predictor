@@ -9,9 +9,8 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner
 2025-12-14,CHI Bulls,NOP Pelicans,NOP Pelicans,61.1%,Auto,GAGNE,NOP Pelicans
 2025-12-14,PHX Suns,LAL Lakers,PHX Suns,56.3%,Auto,PERDU,LAL Lakers
 2025-12-14,POR Trail Blazers,GSW Warriors,GSW Warriors,50.2%,Auto,PERDU,POR Trail Blazers
-
-2025-12-15,BOS Celtics,DET Pistons,BOS Celtics,83.4%,Auto,
-2025-12-15,MIA Heat,TOR Raptors,MIA Heat,68.2%,Auto,
-2025-12-15,UTA Jazz,DAL Mavericks,UTA Jazz,52.8%,Auto,
-2025-12-15,DEN Nuggets,HOU Rockets,DEN Nuggets,69.6%,Auto,
-2025-12-15,LAC Clippers,MEM Grizzlies,MEM Grizzlies,51.3%,Auto,
+2025-12-15,BOS Celtics,DET Pistons,BOS Celtics,83.4%,Auto,PERDU,DET Pistons
+2025-12-15,MIA Heat,TOR Raptors,MIA Heat,68.2%,Auto,PERDU,TOR Raptors
+2025-12-15,UTA Jazz,DAL Mavericks,UTA Jazz,52.8%,Auto,GAGNE,UTA Jazz
+2025-12-15,DEN Nuggets,HOU Rockets,DEN Nuggets,69.6%,Auto,GAGNE,DEN Nuggets
+2025-12-15,LAC Clippers,MEM Grizzlies,MEM Grizzlies,51.3%,Auto,PERDU,LAC Clippers
