@@ -4,7 +4,7 @@ from nba_api.stats.static import teams
 import time
 
 # Configuration
-LOGO_DIR = "logos"
+LOGO_DIR = os.path.join("..", "assets", "logos") 
 
 print(f"--- TÉLÉCHARGEMENT DES LOGOS NBA ---")
 

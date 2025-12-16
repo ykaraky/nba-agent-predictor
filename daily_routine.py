@@ -4,60 +4,53 @@ import time
 import os
 from datetime import datetime
 
-def run_step(script_name, description):
+def run_step(script_path, description):
     print(f"\n{'='*50}")
     print(f"🚀 ÉTAPE : {description}")
     print(f"{'='*50}")
+    
+    # On vérifie que le fichier existe avant de lancer
+    if not os.path.exists(script_path):
+        print(f"❌ ERREUR : Le fichier {script_path} est introuvable.")
+        return False
+
     try:
-        subprocess.run([sys.executable, script_name], check=True)
-        print(f"✅ {script_name} terminé avec succès.")
+        subprocess.run([sys.executable, script_path], check=True)
+        print(f"✅ {script_path} terminé avec succès.")
         return True
     except subprocess.CalledProcessError:
-        print(f"❌ ERREUR CRITIQUE dans {script_name}.")
+        print(f"❌ ERREUR CRITIQUE dans {script_path}.")
         return False
 
 def run_git_sync():
     print(f"\n{'='*50}")
-    print(f"☁️ SYNCHRONISATION CLOUD (GITHUB)")
+    print(f"☁️ SYNCHRONISATION CLOUD")
     print(f"{'='*50}")
     try:
-        # 1. Add
         subprocess.run(["git", "add", "."], check=True)
-        
-        # 2. Commit avec la date
         date_msg = datetime.now().strftime('%Y-%m-%d %H:%M')
-        commit_msg = f"Auto-update scores & predictions {date_msg}"
-        subprocess.run(["git", "commit", "-m", commit_msg], check=False) # check=False car si rien à commiter, ça renvoie une erreur code 1
-        
-        # 3. Push
+        subprocess.run(["git", "commit", "-m", f"Auto-update v5 {date_msg}"], check=False)
         print("Envoi vers GitHub...")
         subprocess.run(["git", "push"], check=True)
-        print("✅ Synchro terminée ! Ton site mobile est à jour.")
+        print("✅ Synchro terminée !")
     except Exception as e:
-        print(f"⚠️ Erreur Git (pas grave si c'est juste réseau) : {e}")
+        print(f"⚠️ Erreur Git : {e}")
 
-# --- DÉMARRAGE DU PROTOCOLE ---
+# --- DÉMARRAGE v5 ---
 
-print("\n🏀 --- NBA AGENT : ROUTINE MATINALE AUTOMATISÉE --- 🏀\n")
+print("\n🏀 --- NBA AGENT v5 : ROUTINE --- 🏀\n")
 
-# 1. Téléchargement des scores d'hier
-if not run_step('data_nba.py', "Mise à jour des Scores"):
-    input("Appuie sur Entrée pour quitter...")
+# Note les chemins : src/nom_du_fichier.py
+if not run_step('src/data_nba.py', "Mise à jour des Scores"):
+    input("Entrée pour quitter...")
     exit()
 
-# 2. Recalcul des stats (Four Factors)
-run_step('features_nba.py', "Recalcul des Statistiques")
+run_step('src/features_nba.py', "Recalcul Stats")
+run_step('src/verify_bets.py', "Vérification Paris")
 
-# 3. Vérification des paris d'hier (GAGNÉ/PERDU)
-run_step('verify_bets.py', "Validation des résultats d'hier")
-
-# 4. Génération des pronostics pour ce soir (NOUVEAU)
-run_step('predict_today.py', "Génération des Pronostics du jour")
-
-# 5. Envoi sur le Cloud
+# Envoi Cloud
 run_git_sync()
 
-# 6. Ouverture de l'interface pour voir le résultat
-print("\n✨ Tout est prêt. Lancement de l'interface...")
+print("\n✨ Lancement de l'interface v5...")
 time.sleep(2)
 subprocess.run([sys.executable, "-m", "streamlit", "run", "app.py"])
