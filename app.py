@@ -137,6 +137,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["🌞 Matchs", "📊 Bilan", "🔮 Manuel", "�
 # --- TAB 1 : DASHBOARD ---
 with tab1:
     today_str = datetime.now().strftime('%Y-%m-%d')
+    # On charge l'historique SEULEMENT si on n'a rien en session
     if st.session_state['games_today'] is None and os.path.exists('bets_history.csv'):
         try:
             hist_check = pd.read_csv('bets_history.csv')
@@ -156,8 +157,16 @@ with tab1:
             if run_script_step('data_nba.py', "Data", status):
                 if run_script_step('features_nba.py', "Stats", status):
                     run_script_step('verify_bets.py', "Verif", status)
-                    load_data_resource.clear()
+                    
+                    # --- CORRECTION ICI : ON VIDE TOUS LES CACHES ---
+                    load_data_resource.clear()  # Vide le cache des données
+                    load_model_resource.clear() # Vide le cache du modèle (IMPORTANT !)
+                    # ------------------------------------------------
+                    
+                    # On recharge les variables immédiatement pour le script
                     df = load_data_resource()
+                    model = load_model_resource()
+                    
                     try:
                         status.write("API NBA...")
                         board = scoreboardv2.ScoreboardV2(game_date=datetime.now().strftime('%Y-%m-%d'))
@@ -170,60 +179,6 @@ with tab1:
                     except Exception as e:
                         status.update(label="Erreur API", state="error")
                         st.error(f"Détail erreur : {e}")
-    with col_txt:
-        if st.session_state['last_run_date']:
-            st.success(f"✅ Routine effectuée ({st.session_state['last_run_date']})")
-
-    st.divider()
-
-    if st.session_state['games_today'] is not None and not st.session_state['games_today'].empty:
-        st.subheader("🏀 Affiches de la nuit")
-        games_df = st.session_state['games_today']
-        cols = st.columns(2)
-        
-        for index, row in games_df.iterrows():
-            col_idx = index % 2
-            with cols[col_idx]:
-                with st.container(border=True):
-                    if 'HOME_TEAM_ID' in row:
-                        h_id, a_id = row['HOME_TEAM_ID'], row['VISITOR_TEAM_ID']
-                        h_name = id_to_name.get(h_id, str(h_id))
-                        a_name = id_to_name.get(a_id, str(a_id))
-                        prob, det = get_prediction(model, df, h_id, a_id)
-                        if prob is not None:
-                            w = h_name if prob > 0.5 else a_name
-                            c = prob*100 if prob > 0.5 else (1-prob)*100
-                            save_bet(h_name, a_name, w, c, "Auto")
-                    else:
-                        name_to_id = {v: k for k, v in id_to_name.items()}
-                        h_name, a_name = row['Home'], row['Away']
-                        h_id, a_id = name_to_id.get(h_name, 0), name_to_id.get(a_name, 0)
-                        prob, det = get_prediction(model, df, h_id, a_id)
-
-                    if prob is not None:
-                        c_home, c_mid, c_away = st.columns([1, 2, 1])
-                        with c_home:
-                            show_team_logo(h_id)
-                            st.caption(h_name.split(' ')[-1])
-                            if det and det['rh']<=1: st.warning("Fatigue")
-                        with c_away:
-                            show_team_logo(a_id)
-                            st.caption(a_name.split(' ')[-1])
-                            if det and det['ra']<=1: st.warning("Fatigue")
-                        with c_mid:
-                            if prob > 0.5:
-                                win_txt = f"👈 {prob*100:.0f}%"
-                                color = "green"
-                            else:
-                                win_txt = f"{ (1-prob)*100:.0f}% 👉"
-                                color = "#d9534f"
-                            st.markdown(f"<h2 style='text-align: center; color: {color}; margin:0;'>{win_txt}</h2>", unsafe_allow_html=True)
-                    else:
-                        st.write("Données manquantes")
-    elif st.session_state['games_today'] is not None:
-        st.info("Aucun match ce soir.")
-    else:
-        st.write("En attente...")
 
 # --- TAB 2 : BILAN (CORRIGÉ) ---
 with tab2:
