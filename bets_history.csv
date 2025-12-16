@@ -14,3 +14,5 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner
 2025-12-15,UTA Jazz,DAL Mavericks,UTA Jazz,52.8%,Auto,GAGNE,UTA Jazz
 2025-12-15,DEN Nuggets,HOU Rockets,DEN Nuggets,69.6%,Auto,GAGNE,DEN Nuggets
 2025-12-15,LAC Clippers,MEM Grizzlies,MEM Grizzlies,51.3%,Auto,PERDU,LAC Clippers
+
+2025-12-16,NYK Knicks,SAS Spurs,SAS Spurs,52.0%,Manual,
