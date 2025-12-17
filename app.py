@@ -285,11 +285,9 @@ with tab1:
                                 with c1:
                                     show_logo(h_id)
                                     st.caption(TEAMS_DB.get(h_id, {}).get('nick', h_name))
-                                    if det and det['rh']<=1: st.caption("⚠️ Fatigue")
                                 with c3:
                                     show_logo(a_id)
                                     st.caption(TEAMS_DB.get(a_id, {}).get('nick', a_name))
-                                    if det and det['ra']<=1: st.caption("⚠️ Fatigue")
                                 with c2:
                                     arr = "❮" if is_h_win else "❯"
                                     if not is_h_win: arr = "❯"
