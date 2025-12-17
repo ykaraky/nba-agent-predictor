@@ -15,30 +15,19 @@ st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout=
 
 st.markdown("""
 <style>
-    /* Carte de match style Dashboard */
     .match-card {
         background-color: #262730;
         padding: 15px;
-        border-radius: 12px;
+        border-radius: 8px;
         border: 1px solid #3e3e3e;
         text-align: center;
         margin-bottom: 15px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
-    .team-label { color: #ccc; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px;}
-    
-    /* Nouveau style pour le score */
-    .score-box {
-        font-size: 1.8em;
-        font-weight: 800;
-        padding: 5px 10px;
-        border-radius: 6px;
-        display: inline-block;
-    }
-    .win-green { color: #4ade80; border-bottom: 2px solid #4ade80; }
-    .win-red { color: #f87171; border-bottom: 2px solid #f87171; }
-    
-    .section-title { font-size: 1.2em; font-weight: bold; margin-top: 20px; margin-bottom: 15px; color: #fff; border-left: 4px solid #00d4ff; padding-left: 10px; }
+    .team-label { color: #aaa; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+    .score-txt { font-size: 1.8em; font-weight: bold; margin: 5px 0; }
+    .win-green { color: #4ade80; }
+    .win-red { color: #f87171; }
+    .section-title { font-size: 1.2em; font-weight: bold; margin-top: 20px; margin-bottom: 10px; color: #fff; border-left: 4px solid #00d4ff; padding-left: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +64,7 @@ def load_resources():
     except: pass
     return model, df
 
-def show_logo(team_id, width=55):
+def show_logo(team_id, width=50):
     path = f"{LOGOS_DIR}/{team_id}.svg"
     if os.path.exists(path): st.image(path, width=width)
     else: st.write("🏀")
@@ -132,6 +121,7 @@ def save_bet_auto(date, h_name, a_name, w_name, conf):
         with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner\n")
     try:
         df = pd.read_csv(HISTORY_FILE)
+        # Check doublon strict
         if not df[(df['Date'] == date) & (df['Home'] == h_name) & (df['Away'] == a_name)].empty: return
     except: pass
     with open(HISTORY_FILE, 'a') as f:
@@ -142,7 +132,7 @@ def get_last_mod(filepath):
         return datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%d/%m %H:%M')
     return "N/A"
 
-# Fonction Scan
+# FONCTION CLÉ : Scan des jours
 def scan_schedule(days_to_check=7):
     found_days = {}
     check_date = datetime.now()
@@ -160,7 +150,7 @@ def scan_schedule(days_to_check=7):
             if not clean.empty: day_games_list.append(clean)
         except: pass
         
-        # B. HISTORIQUE
+        # B. HISTORIQUE (Pour les manuels)
         if os.path.exists(HISTORY_FILE):
             try:
                 hist = pd.read_csv(HISTORY_FILE)
@@ -194,25 +184,38 @@ with c_head2:
 tab1, tab2, tab3 = st.tabs(["📅 MATCHS", "📈 STATS", "🛡️ ADMIN"])
 
 # ==============================================================================
-# TAB 1 : MATCHS (CLEAN DESIGN)
+# TAB 1 : MATCHS (AUTO SCAN)
 # ==============================================================================
 with tab1:
     
-    # Auto Scan silencieux
+    # 1. AUTO SCAN AU DEMARRAGE (Si vide)
     if not st.session_state['schedule_data']:
-        st.session_state['schedule_data'] = scan_schedule()
-        st.session_state['last_update'] = datetime.now().strftime('%H:%M')
+        with st.spinner("Recherche des matchs à venir..."):
+            st.session_state['schedule_data'] = scan_schedule()
+            st.session_state['last_update'] = datetime.now().strftime('%H:%M')
 
+    # INFO BARRE
     if st.session_state['last_update']:
         st.caption(f"Dernier scan : {st.session_state['last_update']}")
 
-    # Affichage
+    # 3. AFFICHAGE DES MATCHS
     schedule = st.session_state.get('schedule_data', {})
     
     if schedule:
+        # On charge l'historique UNE FOIS pour la cohérence
+        hist_df = pd.DataFrame()
+        if os.path.exists(HISTORY_FILE):
+            hist_df = pd.read_csv(HISTORY_FILE)
+
         for date_key, dfs_list in schedule.items():
             is_today = date_key == datetime.now().strftime('%Y-%m-%d')
-            titre = f"Affiches de ce soir ({date_key})" if is_today else f"Affiches du {date_key}"
+            # FORMAT DATE : DD.MM.YYYY
+            try:
+                date_obj = datetime.strptime(date_key, '%Y-%m-%d')
+                date_fmt = date_obj.strftime('%d.%m.%Y')
+            except: date_fmt = date_key
+            
+            titre = f"Affiches de ce soir ({date_fmt})" if is_today else f"Affiches du {date_fmt}"
             
             st.markdown(f"<div class='section-title'>{titre}</div>", unsafe_allow_html=True)
             
@@ -222,45 +225,55 @@ with tab1:
 
             for df_source in dfs_list:
                 for index, row in df_source.iterrows():
+                    
                     h_id, a_id = 0, 0
                     h_name, a_name = "", ""
                     prob, det = None, None
                     source_type = "API"
                     
-                    # API
-                    if 'HOME_TEAM_ID' in row:
+                    # 1. RECUPERATION DONNEES
+                    if 'HOME_TEAM_ID' in row: # API
                         h_id, a_id = row['HOME_TEAM_ID'], row['VISITOR_TEAM_ID']
                         if h_id in TEAMS_DB: h_name = TEAMS_DB[h_id]['full']
                         if a_id in TEAMS_DB: a_name = TEAMS_DB[a_id]['full']
-                        
-                        match_id = f"{h_name} vs {a_name}"
-                        if match_id in seen_matches: continue
-                        seen_matches.append(match_id)
-                        
-                        prob, det = get_prediction(model, df_stats, h_id, a_id)
-                        if prob:
-                            w = h_name if prob > 0.5 else a_name
-                            c = prob*100 if prob > 0.5 else (1-prob)*100
-                            save_bet_auto(date_key, h_name, a_name, w, c)
-
-                    # MANUEL
-                    elif 'Home' in row:
+                    elif 'Home' in row: # MANUEL
                         source_type = "History"
                         h_name, a_name = row['Home'], row['Away']
-                        match_id = f"{h_name} vs {a_name}"
-                        if match_id in seen_matches: continue
-                        seen_matches.append(match_id)
                         h_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(h_name)), 0)
                         a_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(a_name)), 0)
-                        winner = row['Predicted_Winner']
+
+                    match_id = f"{h_name} vs {a_name}"
+                    if match_id in seen_matches: continue
+                    seen_matches.append(match_id)
+
+                    # 2. LOGIQUE PRIORITÉ HISTORIQUE
+                    existing_bet = pd.DataFrame()
+                    if not hist_df.empty:
+                        existing_bet = hist_df[
+                            (hist_df['Date'] == date_key) & 
+                            (hist_df['Home'] == h_name) & 
+                            (hist_df['Away'] == a_name)
+                        ]
+                    
+                    if not existing_bet.empty:
+                        saved_row = existing_bet.iloc[0]
+                        winner = saved_row['Predicted_Winner']
+                        conf_str = str(saved_row['Confidence']).replace('%', '')
                         try:
-                            conf_val = float(str(row['Confidence']).replace('%', ''))/100
-                            is_home_winner = (winner == h_name)
-                            prob = conf_val if is_home_winner else (1-conf_val)
+                            conf_val = float(conf_str)/100
+                            is_h_win = (winner == h_name)
+                            prob = conf_val if is_h_win else (1-conf_val)
                             det = {'rh':0, 'ra':0}
                         except: prob = None
+                    else:
+                        if h_id != 0:
+                            prob, det = get_prediction(model, df_stats, h_id, a_id)
+                            if prob:
+                                w = h_name if prob > 0.5 else a_name
+                                c = prob*100 if prob > 0.5 else (1-prob)*100
+                                save_bet_auto(date_key, h_name, a_name, w, c)
 
-                    # RENDU CARTE
+                    # 3. RENDU
                     if prob is not None and h_id != 0:
                         with cols[card_count % 2]:
                             with st.container(border=True):
@@ -272,20 +285,17 @@ with tab1:
                                 with c1:
                                     show_logo(h_id)
                                     st.caption(TEAMS_DB.get(h_id, {}).get('nick', h_name))
+                                    if det and det['rh']<=1: st.caption("⚠️ Fatigue")
                                 with c3:
                                     show_logo(a_id)
                                     st.caption(TEAMS_DB.get(a_id, {}).get('nick', a_name))
+                                    if det and det['ra']<=1: st.caption("⚠️ Fatigue")
                                 with c2:
-                                    # DESIGN CHEVRON
-                                    arr = "❮" if is_h_win else ""
-                                    arr_r = "❯" if not is_h_win else ""
+                                    arr = "❮" if is_h_win else "❯"
+                                    if not is_h_win: arr = "❯"
+                                    else: arr = "❮"
                                     
-                                    st.markdown(f"""
-                                    <div style='text-align: center; margin-top: 10px;'>
-                                        <span class='score-box {col_txt}'>{arr} {val_disp:.0f}% {arr_r}</span>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                    
+                                    st.markdown(f"<div class='score-txt {col_txt}'>{arr} {val_disp:.0f}%</div>", unsafe_allow_html=True)
                                     if source_type == "History": st.caption("Manuel")
                         card_count += 1
 
@@ -293,8 +303,9 @@ with tab1:
         st.warning("Aucun match trouvé pour les 7 prochains jours.")
 
     st.write("")
-    
-    # BILAN FLASH
+    st.write("")
+
+    # 4. BILAN FLASH
     if os.path.exists(HISTORY_FILE):
         hist = pd.read_csv(HISTORY_FILE)
         finished = hist[hist['Result'].isin(['GAGNE', 'PERDU'])].copy()
@@ -304,7 +315,12 @@ with tab1:
             for d in dates:
                 day_rows = finished[finished['Date'] == d]
                 wins = len(day_rows[day_rows['Result'] == 'GAGNE'])
-                with st.expander(f"📅 {d} ({wins}/{len(day_rows)})", expanded=True):
+                
+                # Format Date DD.MM.YYYY
+                try: d_fmt = datetime.strptime(d, '%Y-%m-%d').strftime('%d.%m.%Y')
+                except: d_fmt = d
+                
+                with st.expander(f"📅 {d_fmt} ({wins}/{len(day_rows)})", expanded=True):
                     for _, r in day_rows.iterrows():
                         icon = "✅" if r['Result'] == "GAGNE" else "❌"
                         h_s = get_short_code(get_clean_name(r['Home']))
@@ -322,6 +338,9 @@ with tab2:
         if 'Real_Winner' not in df_hist.columns: df_hist['Real_Winner'] = "En attente..."
         df_hist = df_hist.fillna("")
         
+        # FIX DATE FORMAT : Convertir la colonne 'Date' en datetime pour être sûr
+        df_hist['Date'] = pd.to_datetime(df_hist['Date'], errors='coerce')
+        
         df_hist['Home_Clean'] = df_hist['Home'].apply(get_clean_name)
         df_hist['Away_Clean'] = df_hist['Away'].apply(get_clean_name)
         df_hist['Prono_Short'] = df_hist['Predicted_Winner'].apply(lambda x: get_short_code(get_clean_name(x)))
@@ -329,6 +348,7 @@ with tab2:
         
         display_df = df_hist[['Date', 'Home_Clean', 'Away_Clean', 'Prono_Short', 'Winner_Short', 'Result', 'Confidence', 'Type']].copy()
         display_df.columns = ['Date', 'Home', 'Away', 'Prono', 'Vainqueur', 'Result', 'Confidence', 'Type']
+        
         display_df = display_df.sort_index(ascending=False)
         display_df.insert(len(display_df.columns), "Del", False)
         
@@ -336,6 +356,7 @@ with tab2:
             display_df,
             column_config={
                 "Del": st.column_config.CheckboxColumn("🗑️", width="small"),
+                "Date": st.column_config.DateColumn("Date", format="DD.MM.YYYY"), # C'EST ICI QUE ÇA PLANTAIT
                 "Result": st.column_config.TextColumn("Res"),
                 "Confidence": st.column_config.TextColumn("Conf"),
             },
@@ -350,6 +371,8 @@ with tab2:
             if not to_del_idx.empty:
                 hist_new = df_hist.drop(to_del_idx)
                 cols_save = ['Date', 'Home', 'Away', 'Predicted_Winner', 'Confidence', 'Type', 'Result', 'Real_Winner']
+                # On remet la date en string YYYY-MM-DD pour la sauvegarde CSV
+                hist_new['Date'] = hist_new['Date'].dt.strftime('%Y-%m-%d')
                 hist_new[cols_save].to_csv(HISTORY_FILE, index=False)
                 st.success("Nettoyé !"); time.sleep(0.5); st.rerun()
         if c2.button("Supprimer tous les doublons"):
@@ -366,6 +389,7 @@ with tab3:
         st.subheader("🛠️ Maintenance")
         st.info(f"Cerveau : {get_last_mod(MODEL_FILE)}")
         st.info(f"Données : {get_last_mod(GAMES_FILE)}")
+        
         if st.button("Forcer Mise à jour Scores", type="primary"):
             with st.status("Travail en cours...") as s:
                 run_script('src/data_nba.py', "Data", s)
@@ -376,7 +400,8 @@ with tab3:
                 load_resources.clear()
                 s.update(label="Terminé", state="complete")
                 st.rerun()
-        if st.button("Mise à jour Hebdo (Lundi)"):
+                
+        if st.button("Mise à jour Hebdo (Lundi)", use_container_width=True):
             with st.status("Entraînement...") as s:
                 succ, msg, acc = train_nba.train_model()
                 if succ:
