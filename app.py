@@ -118,14 +118,38 @@ def get_prediction(model, df_history, h_id, a_id):
 
 def save_bet_auto(date, h_name, a_name, w_name, conf):
     if not os.path.exists(HISTORY_FILE): 
-        with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner\n")
+        with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Prediction,User_Result\n")
     try:
         df = pd.read_csv(HISTORY_FILE)
         # Check doublon strict
         if not df[(df['Date'] == date) & (df['Home'] == h_name) & (df['Away'] == a_name)].empty: return
     except: pass
+    # Ajout ligne avec champs vides pour User
     with open(HISTORY_FILE, 'a') as f:
-        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Auto,,")
+        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Auto,,,")
+
+def save_user_vote(date_str, h_name, a_name, user_choice):
+    """Sauvegarde le choix de l'utilisateur dans le CSV"""
+    if not os.path.exists(HISTORY_FILE): return
+    
+    try:
+        df = pd.read_csv(HISTORY_FILE)
+        if 'User_Prediction' not in df.columns: df['User_Prediction'] = None
+        
+        # Trouver la ligne
+        mask = (df['Date'] == date_str) & (df['Home'] == h_name) & (df['Away'] == a_name)
+        
+        if df[mask].empty:
+            st.error("Erreur: Match introuvable.")
+            return
+
+        idx = df[mask].index[0]
+        df.at[idx, 'User_Prediction'] = user_choice
+        df.to_csv(HISTORY_FILE, index=False)
+        st.toast(f"Pari enregistré : {user_choice} !", icon="🗳️")
+        
+    except Exception as e:
+        st.error(f"Erreur sauvegarde : {e}")
 
 def get_last_mod(filepath):
     if os.path.exists(filepath):
@@ -246,8 +270,10 @@ with tab1:
                     if match_id in seen_matches: continue
                     seen_matches.append(match_id)
 
-                    # 2. LOGIQUE PRIORITÉ HISTORIQUE
+                    # 2. LOGIQUE INTELLIGENTE (IA + USER)
                     existing_bet = pd.DataFrame()
+                    user_bet_val = None
+                    
                     if not hist_df.empty:
                         existing_bet = hist_df[
                             (hist_df['Date'] == date_key) & 
@@ -255,16 +281,22 @@ with tab1:
                             (hist_df['Away'] == a_name)
                         ]
                     
+                    # A. Récupération Prono IA existant
                     if not existing_bet.empty:
                         saved_row = existing_bet.iloc[0]
                         winner = saved_row['Predicted_Winner']
                         conf_str = str(saved_row['Confidence']).replace('%', '')
+                        # Récup choix User s'il existe
+                        if 'User_Prediction' in saved_row and pd.notna(saved_row['User_Prediction']):
+                            user_bet_val = saved_row['User_Prediction']
+                            
                         try:
                             conf_val = float(conf_str)/100
                             is_h_win = (winner == h_name)
                             prob = conf_val if is_h_win else (1-conf_val)
-                            det = {'rh':0, 'ra':0}
                         except: prob = None
+                    
+                    # B. Si pas de prono IA, on le calcule et on l'enregistre
                     else:
                         if h_id != 0:
                             prob, det = get_prediction(model, df_stats, h_id, a_id)
@@ -272,29 +304,55 @@ with tab1:
                                 w = h_name if prob > 0.5 else a_name
                                 c = prob*100 if prob > 0.5 else (1-prob)*100
                                 save_bet_auto(date_key, h_name, a_name, w, c)
+                                st.rerun()
 
-                    # 3. RENDU
+                    # 3. RENDU VISUEL (NOUVEAU DESIGN)
                     if prob is not None and h_id != 0:
                         with cols[card_count % 2]:
                             with st.container(border=True):
+                                # -- CALCULS --
                                 is_h_win = prob > 0.5
-                                val_disp = prob*100 if is_h_win else (1-prob)*100
-                                col_txt = "win-green" if is_h_win else "win-red"
+                                ia_choice_name = h_name if is_h_win else a_name
+                                ia_conf = prob*100 if is_h_win else (1-prob)*100
+                                ia_short = TEAMS_DB.get(h_id if is_h_win else a_id, {}).get('code', ia_choice_name[:3].upper())
                                 
-                                c1, c2, c3 = st.columns([1,2,1])
-                                with c1:
-                                    show_logo(h_id)
+                                # -- LAYOUT --
+                                c_h, c_vs, c_a = st.columns([2, 1, 2])
+                                
+                                # Equipe Domicile
+                                with c_h:
+                                    show_logo(h_id, width=55)
                                     st.caption(TEAMS_DB.get(h_id, {}).get('nick', h_name))
-                                with c3:
-                                    show_logo(a_id)
+                                
+                                # Centre (Info IA)
+                                with c_vs:
+                                    st.markdown(f"<div style='text-align:center; font-size:0.8em; color:#888;'>IA</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='text-align:center; font-weight:bold; font-size:1.1em; color:#00d4ff;'>{ia_short}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='text-align:center; font-size:0.8em;'>{ia_conf:.0f}%</div>", unsafe_allow_html=True)
+
+                                # Equipe Extérieur
+                                with c_a:
+                                    show_logo(a_id, width=55)
                                     st.caption(TEAMS_DB.get(a_id, {}).get('nick', a_name))
-                                with c2:
-                                    arr = "❮" if is_h_win else "❯"
-                                    if not is_h_win: arr = "❯"
-                                    else: arr = "❮"
-                                    
-                                    st.markdown(f"<div class='score-txt {col_txt}'>{arr} {val_disp:.0f}%</div>", unsafe_allow_html=True)
-                                    if source_type == "History": st.caption("Manuel")
+
+                                st.divider()
+                                
+                                # -- BOUTONS UTILISATEUR --
+                                st.caption("Votre vote :")
+                                b_col1, b_col2 = st.columns(2)
+                                
+                                # Bouton Home
+                                type_h = "primary" if user_bet_val == h_name else "secondary"
+                                if b_col1.button(f"{TEAMS_DB.get(h_id, {}).get('code', 'Home')}", key=f"btn_h_{match_id}_{date_key}", type=type_h, use_container_width=True):
+                                    save_user_vote(date_key, h_name, a_name, h_name)
+                                    st.rerun()
+                                
+                                # Bouton Away
+                                type_a = "primary" if user_bet_val == a_name else "secondary"
+                                if b_col2.button(f"{TEAMS_DB.get(a_id, {}).get('code', 'Away')}", key=f"btn_a_{match_id}_{date_key}", type=type_a, use_container_width=True):
+                                    save_user_vote(date_key, h_name, a_name, a_name)
+                                    st.rerun()
+
                         card_count += 1
 
     elif st.session_state['schedule_data'] == {}:
@@ -314,7 +372,6 @@ with tab1:
                 day_rows = finished[finished['Date'] == d]
                 wins = len(day_rows[day_rows['Result'] == 'GAGNE'])
                 
-                # Format Date DD.MM.YYYY
                 try: d_fmt = datetime.strptime(d, '%Y-%m-%d').strftime('%d.%m.%Y')
                 except: d_fmt = d
                 
@@ -336,7 +393,7 @@ with tab2:
         if 'Real_Winner' not in df_hist.columns: df_hist['Real_Winner'] = "En attente..."
         df_hist = df_hist.fillna("")
         
-        # FIX DATE FORMAT : Convertir la colonne 'Date' en datetime pour être sûr
+        # FIX DATE FORMAT
         df_hist['Date'] = pd.to_datetime(df_hist['Date'], errors='coerce')
         
         df_hist['Home_Clean'] = df_hist['Home'].apply(get_clean_name)
@@ -344,8 +401,12 @@ with tab2:
         df_hist['Prono_Short'] = df_hist['Predicted_Winner'].apply(lambda x: get_short_code(get_clean_name(x)))
         df_hist['Winner_Short'] = df_hist['Real_Winner'].apply(lambda x: get_short_code(get_clean_name(x)) if x not in ["En attente...", "None", ""] else "...")
         
-        display_df = df_hist[['Date', 'Home_Clean', 'Away_Clean', 'Prono_Short', 'Winner_Short', 'Result', 'Confidence', 'Type']].copy()
-        display_df.columns = ['Date', 'Home', 'Away', 'Prono', 'Vainqueur', 'Result', 'Confidence', 'Type']
+        # --- GESTION USER ---
+        if 'User_Prediction' not in df_hist.columns: df_hist['User_Prediction'] = ""
+        df_hist['User_Short'] = df_hist['User_Prediction'].apply(lambda x: get_short_code(get_clean_name(x)) if pd.notna(x) and x != "" else "-")
+
+        display_df = df_hist[['Date', 'Home_Clean', 'Away_Clean', 'Prono_Short', 'User_Short', 'Winner_Short', 'Result', 'Confidence', 'Type']].copy()
+        display_df.columns = ['Date', 'Home', 'Away', 'IA', 'Moi', 'Vainqueur', 'Result', 'Conf', 'Type']
         
         display_df = display_df.sort_index(ascending=False)
         display_df.insert(len(display_df.columns), "Del", False)
@@ -354,9 +415,11 @@ with tab2:
             display_df,
             column_config={
                 "Del": st.column_config.CheckboxColumn("🗑️", width="small"),
-                "Date": st.column_config.DateColumn("Date", format="DD.MM.YYYY"), # C'EST ICI QUE ÇA PLANTAIT
+                "Date": st.column_config.DateColumn("Date", format="DD.MM.YYYY"),
+                "IA": st.column_config.TextColumn("IA", help="Choix IA"),
+                "Moi": st.column_config.TextColumn("Moi", help="Votre Choix"),
                 "Result": st.column_config.TextColumn("Res"),
-                "Confidence": st.column_config.TextColumn("Conf"),
+                "Conf": st.column_config.TextColumn("Conf"),
             },
             hide_index=True,
             use_container_width=True
@@ -368,10 +431,11 @@ with tab2:
             to_del_idx = edited[edited.Del == True].index
             if not to_del_idx.empty:
                 hist_new = df_hist.drop(to_del_idx)
-                cols_save = ['Date', 'Home', 'Away', 'Predicted_Winner', 'Confidence', 'Type', 'Result', 'Real_Winner']
-                # On remet la date en string YYYY-MM-DD pour la sauvegarde CSV
+                cols_save = ['Date', 'Home', 'Away', 'Predicted_Winner', 'Confidence', 'Type', 'Result', 'Real_Winner', 'User_Prediction', 'User_Result']
+                # On remet la date en string YYYY-MM-DD
                 hist_new['Date'] = hist_new['Date'].dt.strftime('%Y-%m-%d')
-                hist_new[cols_save].to_csv(HISTORY_FILE, index=False)
+                hist_new = hist_new.reindex(columns=cols_save) # Garder ordre colonnes
+                hist_new.to_csv(HISTORY_FILE, index=False)
                 st.success("Nettoyé !"); time.sleep(0.5); st.rerun()
         if c2.button("Supprimer tous les doublons"):
             df_hist.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last').to_csv(HISTORY_FILE, index=False)
@@ -393,7 +457,6 @@ with tab3:
                 run_script('src/data_nba.py', "Data", s)
                 run_script('src/features_nba.py', "Stats", s)
                 run_script('src/verify_bets.py', "Verif", s)
-                st.session_state['games_data'] = None
                 st.session_state['schedule_data'] = {} 
                 load_resources.clear()
                 s.update(label="Terminé", state="complete")
