@@ -64,6 +64,40 @@ def load_resources():
     except: pass
     return model, df
 
+from nba_api.stats.endpoints import leaguestandingsv3
+
+
+@st.cache_data(ttl=3600)
+def get_standings_db():
+    """Récupère le classement et les séries en cours"""
+    try:
+        standings = leaguestandingsv3.LeagueStandingsV3()
+        df = standings.standings.get_data_frame()
+        
+        res = {}
+        for _, row in df.iterrows():
+            tid = row['TeamID']
+            streak_val = row['CurrentStreak'] # Est maintenant un entier (ex: 5 ou -2)
+            
+            # Gestion format W/L
+            if isinstance(streak_val, int) or (isinstance(streak_val, str) and streak_val.lstrip('-').isdigit()):
+                val = int(streak_val)
+                streak_short = f"W{abs(val)}" if val > 0 else f"L{abs(val)}"
+            else:
+                # Fallback ancien format texte
+                streak_short = str(streak_val)
+
+            res[tid] = {
+                'rec': row['Record'],
+                'strk': streak_short,
+                'rank': row['PlayoffRank'],
+                'conf': row['Conference']
+            }
+        return res
+    except: return {}
+
+STANDINGS_DB = get_standings_db()
+
 def show_logo(team_id, width=50):
     path = f"{LOGOS_DIR}/{team_id}.svg"
     if os.path.exists(path): st.image(path, width=width)
@@ -318,14 +352,24 @@ with tab1:
                                 
                                 # -- LAYOUT --
                                 c_h, c_vs, c_a = st.columns([2, 1, 2])
-                                
+
+                                # --- Récup infos contexte ---
+                                inf_h = STANDINGS_DB.get(h_id, {'rec': '', 'strk': '', 'rank': ''})
+                                inf_a = STANDINGS_DB.get(a_id, {'rec': '', 'strk': '', 'rank': ''})
+
                                 # Equipe Domicile
                                 with c_h:
                                     show_logo(h_id, width=55)
                                     st.caption(TEAMS_DB.get(h_id, {}).get('nick', h_name))
+                                    # NOUVEAU : Contexte
+                                    if inf_h['rec']:
+                                        st.markdown(f"<div style='font-size:0.7em; color:#aaa;'>#{inf_h['rank']} ({inf_h['rec']})</div>", unsafe_allow_html=True)
+                                        col_s = "#4ade80" if 'W' in inf_h['strk'] else "#f87171" # Vert si W, Rouge si L
+                                        st.markdown(f"<div style='font-size:0.7em; font-weight:bold; color:{col_s};'>{inf_h['strk']}</div>", unsafe_allow_html=True)
                                 
                                 # Centre (Info IA)
                                 with c_vs:
+                                    # ... (Code existant inchangé) ...
                                     st.markdown(f"<div style='text-align:center; font-size:0.8em; color:#888;'>IA</div>", unsafe_allow_html=True)
                                     st.markdown(f"<div style='text-align:center; font-weight:bold; font-size:1.1em; color:#00d4ff;'>{ia_short}</div>", unsafe_allow_html=True)
                                     st.markdown(f"<div style='text-align:center; font-size:0.8em;'>{ia_conf:.0f}%</div>", unsafe_allow_html=True)
@@ -334,6 +378,11 @@ with tab1:
                                 with c_a:
                                     show_logo(a_id, width=55)
                                     st.caption(TEAMS_DB.get(a_id, {}).get('nick', a_name))
+                                    # NOUVEAU : Contexte
+                                    if inf_a['rec']:
+                                        st.markdown(f"<div style='font-size:0.7em; color:#aaa;'>#{inf_a['rank']} ({inf_a['rec']})</div>", unsafe_allow_html=True)
+                                        col_s = "#4ade80" if 'W' in inf_a['strk'] else "#f87171"
+                                        st.markdown(f"<div style='font-size:0.7em; font-weight:bold; color:{col_s};'>{inf_a['strk']}</div>", unsafe_allow_html=True)
 
                                 st.divider()
                                 
