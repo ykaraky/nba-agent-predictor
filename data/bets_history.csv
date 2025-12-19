@@ -17,16 +17,16 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-16,NYK Knicks,SAS Spurs,SAS Spurs,52.0%,Manual,PERDU, New York Knicks,,
 2025-12-17,Chicago Bulls,Cleveland Cavaliers,Chicago Bulls,59.3%,Auto,GAGNE,Chicago Bulls,,
 2025-12-17,Minnesota Timberwolves,Memphis Grizzlies,Minnesota Timberwolves,64.2%,Auto,PERDU,Memphis Grizzlies,,
-2025-12-18,Charlotte Hornets,Atlanta Hawks,Charlotte Hornets,55.8%,Auto,,,Atlanta Hawks,
-2025-12-18,Indiana Pacers,New York Knicks,New York Knicks,59.8%,Auto,,,New York Knicks,
-2025-12-18,Brooklyn Nets,Miami Heat,Brooklyn Nets,61.9%,Auto,,,Miami Heat,
-2025-12-18,Milwaukee Bucks,Toronto Raptors,Milwaukee Bucks,66.7%,Auto,,,Toronto Raptors,
-2025-12-18,New Orleans Pelicans,Houston Rockets,New Orleans Pelicans,79.8%,Auto,,,Houston Rockets,
-2025-12-18,Dallas Mavericks,Detroit Pistons,Dallas Mavericks,62.6%,Auto,,,Detroit Pistons,
-2025-12-18,Denver Nuggets,Orlando Magic,Denver Nuggets,71.3%,Auto,,,Denver Nuggets,
-2025-12-18,Phoenix Suns,Golden State Warriors,Phoenix Suns,52.1%,Auto,,,Phoenix Suns,
-2025-12-18,Utah Jazz,Los Angeles Lakers,Utah Jazz,52.8%,Auto,,,Los Angeles Lakers,
-2025-12-18,Portland Trail Blazers,Sacramento Kings,Portland Trail Blazers,59.6%,Auto,,,Sacramento Kings,
+2025-12-18,Charlotte Hornets,Atlanta Hawks,Charlotte Hornets,55.8%,Auto,GAGNE,Charlotte Hornets,Atlanta Hawks,PERDU
+2025-12-18,Indiana Pacers,New York Knicks,New York Knicks,59.8%,Auto,GAGNE,New York Knicks,New York Knicks,GAGNE
+2025-12-18,Brooklyn Nets,Miami Heat,Brooklyn Nets,61.9%,Auto,PERDU,Miami Heat,Miami Heat,GAGNE
+2025-12-18,Milwaukee Bucks,Toronto Raptors,Milwaukee Bucks,66.7%,Auto,PERDU,Toronto Raptors,Toronto Raptors,GAGNE
+2025-12-18,New Orleans Pelicans,Houston Rockets,New Orleans Pelicans,79.8%,Auto,GAGNE,New Orleans Pelicans,Houston Rockets,PERDU
+2025-12-18,Dallas Mavericks,Detroit Pistons,Dallas Mavericks,62.6%,Auto,GAGNE,Dallas Mavericks,Detroit Pistons,PERDU
+2025-12-18,Denver Nuggets,Orlando Magic,Denver Nuggets,71.3%,Auto,GAGNE,Denver Nuggets,Denver Nuggets,GAGNE
+2025-12-18,Phoenix Suns,Golden State Warriors,Phoenix Suns,52.1%,Auto,GAGNE,Phoenix Suns,Phoenix Suns,GAGNE
+2025-12-18,Utah Jazz,Los Angeles Lakers,Utah Jazz,52.8%,Auto,PERDU,Los Angeles Lakers,Los Angeles Lakers,GAGNE
+2025-12-18,Portland Trail Blazers,Sacramento Kings,Portland Trail Blazers,59.6%,Auto,PERDU,Sacramento Kings,Sacramento Kings,GAGNE
 2025-12-19,Boston Celtics,Miami Heat,Boston Celtics,59.3%,Auto,,,Miami Heat,
 2025-12-19,New York Knicks,Philadelphia 76ers,New York Knicks,53.9%,Auto,,,New York Knicks,
 2025-12-19,Atlanta Hawks,San Antonio Spurs,San Antonio Spurs,65.5%,Auto,,,San Antonio Spurs,
