@@ -27,11 +27,11 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-18,Phoenix Suns,Golden State Warriors,Phoenix Suns,52.1%,Auto,GAGNE,Phoenix Suns,Phoenix Suns,GAGNE
 2025-12-18,Utah Jazz,Los Angeles Lakers,Utah Jazz,52.8%,Auto,PERDU,Los Angeles Lakers,Los Angeles Lakers,GAGNE
 2025-12-18,Portland Trail Blazers,Sacramento Kings,Portland Trail Blazers,59.6%,Auto,PERDU,Sacramento Kings,Sacramento Kings,GAGNE
-2025-12-19,Boston Celtics,Miami Heat,Boston Celtics,59.3%,Auto,,,Miami Heat,
-2025-12-19,New York Knicks,Philadelphia 76ers,New York Knicks,53.9%,Auto,,,New York Knicks,
-2025-12-19,Atlanta Hawks,San Antonio Spurs,San Antonio Spurs,65.5%,Auto,,,San Antonio Spurs,
-2025-12-19,Cleveland Cavaliers,Chicago Bulls,Cleveland Cavaliers,62.4%,Auto,,,Cleveland Cavaliers,
-2025-12-19,Minnesota Timberwolves,Oklahoma City Thunder,Oklahoma City Thunder,50.4%,Auto,,,Oklahoma City Thunder,
+2025-12-19,Boston Celtics,Miami Heat,Boston Celtics,59.3%,Auto,GAGNE,Boston Celtics,Miami Heat,PERDU
+2025-12-19,New York Knicks,Philadelphia 76ers,New York Knicks,53.9%,Auto,PERDU,Philadelphia 76ers,New York Knicks,PERDU
+2025-12-19,Atlanta Hawks,San Antonio Spurs,San Antonio Spurs,65.5%,Auto,GAGNE,San Antonio Spurs,San Antonio Spurs,GAGNE
+2025-12-19,Cleveland Cavaliers,Chicago Bulls,Cleveland Cavaliers,62.4%,Auto,PERDU,Chicago Bulls,Cleveland Cavaliers,PERDU
+2025-12-19,Minnesota Timberwolves,Oklahoma City Thunder,Oklahoma City Thunder,50.4%,Auto,PERDU,Minnesota Timberwolves,Oklahoma City Thunder,PERDU
 2025-12-20,Denver Nuggets,Houston Rockets,Denver Nuggets,89.5%,Auto,,,Denver Nuggets,
 2025-12-20,Philadelphia 76ers,Dallas Mavericks,Dallas Mavericks,56.0%,Auto,,,Philadelphia 76ers,
 2025-12-20,Toronto Raptors,Boston Celtics,Boston Celtics,74.1%,Auto,,,Toronto Raptors,
