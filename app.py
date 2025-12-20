@@ -13,105 +13,114 @@ from src import train_nba
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
 
-# --- CSS COMPLET ---
+# --- CSS (DESIGN UNIFIÉ) ---
 st.markdown("""
 <style>
-    /* 1. HEADER & NAVIGATION FIXES */
-    /* Force le header natif à rester en haut */
-    header[data-testid="stHeader"] {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        z-index: 99999 !important;
-        background-color: #0e1117 !important;
-        opacity: 1 !important;
-        height: 3.5rem !important;
-    }
-    /* Force la barre de navigation (Tabs) à coller au header */
+    /* 1. HEADER & NAV STICKY */
     div[data-testid="stTabs"] {
-        position: sticky !important;
-        top: 3.5rem !important; /* Hauteur du header */
-        z-index: 99990 !important;
-        background-color: #0e1117 !important;
-        padding-top: 0px !important;
+        position: sticky;
+        top: 2.8rem;
+        background-color: #0e1117;
+        z-index: 999;
+        padding-top: 10px;
+        margin-top: 0px;
         border-bottom: 1px solid #333;
     }
-    /* Pousse le contenu vers le bas pour ne pas être caché par le header */
-    .main .block-container {
-        padding-top: 7rem !important; 
-    }
-
-    /* 2. CARDS STYLING */
-    .match-card-container {
-        border: 1px solid #333;
-        border-radius: 8px;
-        background-color: #161920;
-        margin-bottom: 10px;
-        overflow: hidden;
+    
+    /* 2. CARD VISUELLE (Le bloc gris unique) */
+    .unified-card {
+        background-color: #262730;
+        border: 1px solid #444;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 0px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     
-    /* Zone Prono avec FOND GRIS DISTINCT */
-    .prono-container {
-        background-color: #262730; 
-        border-radius: 6px;
-        padding: 8px;
-        margin: 5px;
+    /* 3. STRUCTURE INTERNE */
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 12px;
+    }
+    
+    .team-box {
+        flex: 1;
         text-align: center;
-        border: 1px solid #3e3e3e;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     
-    .team-name { font-weight: bold; font-size: 1.0em; margin:0; }
-    .team-meta { font-size: 0.75em; color: #aaa; }
-    .prono-label { font-size: 0.7em; color: #bbb; text-transform: uppercase; letter-spacing: 1px; }
-    .prono-val { font-size: 1.4em; font-weight: 900; color: #fff; line-height: 1.2; }
-    .prono-conf { font-size: 0.8em; color: #00d4ff; font-weight: bold; }
+    .vs-text { font-weight: bold; color: #666; font-size: 0.8em; padding: 0 10px; }
     
-    /* Bouton Modifier Discret */
-    div[data-testid="stButton"] button {
-        border-radius: 4px;
-    }
+    /* Typo Equipes */
+    .t-code { font-weight: bold; font-size: 1.3em; margin-top: 5px; line-height: 1; color: #fff; }
+    .t-meta { font-size: 0.75em; color: #bbb; margin-top: 4px; }
     
-    /* 3. TABLEAU RESULTATS HTML (Zebra) */
-    .res-table {
+    /* 4. ZONE PRONOS */
+    .prono-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
         width: 100%;
-        border-collapse: collapse;
-        font-family: sans-serif;
+    }
+    
+    .prono-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
         font-size: 0.9em;
+        width: 100%;
     }
-    .res-table th { text-align: left; color: #888; font-size: 0.8em; padding: 5px; border-bottom: 1px solid #444; }
-    .res-table td { padding: 8px 5px; border-bottom: 1px solid #333; color: #eee; }
-    /* Zebra Striping */
-    .res-table tr:nth-child(even) { background-color: #1f2129; }
-    .res-table tr:nth-child(odd) { background-color: #16181e; }
     
-    .badge-win { color: #4ade80; font-weight: bold; }
-    .badge-loss { color: #f87171; font-weight: bold; }
-    .badge-neutral { color: #666; }
+    .p-lbl { color: #888; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
+    .p-val { color: #fff; font-weight: 900; font-size: 1.3em; }
+    .p-conf { color: #00d4ff; font-size: 0.85em; font-weight: bold; }
+    
+    .user-choice-row {
+        margin-top: 5px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* 5. BOUTONS ACTIONS */
+    .action-container {
+        margin-top: 5px;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    
+    .link-btn button {
+        background: transparent !important;
+        border: none !important;
+        color: #666 !important;
+        text-decoration: underline !important;
+        padding: 0 !important;
+        font-size: 0.75em !important;
+        height: auto !important;
+        margin-top: 2px !important;
+    }
+    .link-btn button:hover { color: #fff !important; }
 
-    /* 4. MOBILE OPTIMIZATIONS */
-    @media (max-width: 640px) {
-        /* Layout spécifique mobile pour les cards */
-        .mobile-teams-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #333;
-        }
-        .mobile-team { text-align: center; width: 45%; }
-        
-        /* Cacher la vue desktop sur mobile et inversement */
-        .desktop-view { display: none !important; }
-        .mobile-view { display: block !important; }
-        
-        /* Boutons */
-        .stButton button { width: 100%; margin-top: 5px; }
-    }
+    /* 6. TABLEAU RESULTATS HTML */
+    .res-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+    .res-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; }
+    .res-table td { border-bottom: 1px solid #333; padding: 8px 5px; color: #ddd; }
+    .res-table tr:nth-child(even) { background-color: #1f2129; }
     
-    @media (min-width: 641px) {
-        .mobile-view { display: none !important; }
-        .desktop-view { display: flex !important; }
+    /* 7. MOBILE */
+    @media (max-width: 640px) {
+        .t-code { font-size: 1.1em; }
+        .stButton button { width: 100%; }
+        .unified-card { padding: 10px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -129,7 +138,6 @@ GAMES_FILE = os.path.join(DATA_DIR, "nba_games_ready.csv")
 MODEL_FILE = os.path.join(MODEL_DIR, "nba_predictor.json")
 
 # --- 3. FONCTIONS ---
-
 def get_teams_dict():
     nba_teams = teams.get_teams()
     return {t['id']: {'full': t['full_name'], 'code': t['abbreviation'], 'nick': t['nickname']} for t in nba_teams}
@@ -161,7 +169,6 @@ def get_standings_db():
                 val = int(streak_val)
                 streak_short = f"W{abs(val)}" if val > 0 else f"L{abs(val)}"
             else: streak_short = str(streak_val)
-
             res[tid] = {'rec': row['Record'], 'strk': streak_short, 'rank': row['PlayoffRank']}
         return res
     except: return {}
@@ -272,7 +279,7 @@ def scan_schedule(days_to_check=7):
 # --- INIT ---
 model, df_stats = load_resources()
 
-# --- HEADER (Visible) ---
+# --- HEADER ---
 c_head1, c_head2 = st.columns([1, 8])
 with c_head1:
     if os.path.exists(APP_LOGO): st.image(APP_LOGO, width=60)
@@ -332,10 +339,10 @@ with tab1:
                     if not existing_bet.empty:
                         saved_row = existing_bet.iloc[0]
                         winner = saved_row['Predicted_Winner']
-                        conf_str = str(saved_row['Confidence']).replace('%', '')
                         if 'User_Prediction' in saved_row and pd.notna(saved_row['User_Prediction']):
                             user_bet_val = saved_row['User_Prediction']
                         try:
+                            conf_str = str(saved_row['Confidence']).replace('%', '')
                             conf_val = float(conf_str)/100
                             is_h_win = (winner == h_name)
                             prob = conf_val if is_h_win else (1-conf_val)
@@ -352,15 +359,14 @@ with tab1:
                     if prob is not None and h_id != 0:
                         matches_to_display.append({'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 'prob': prob, 'u': user_bet_val, 'mid': mid, 'd': date_key})
 
-            # --- RENDER CARDS ---
+            # --- RENDER CARDS (STRUCTURE PLATE SANS INDENTATION MARKDOWN) ---
             if matches_to_display:
                 cols = st.columns(2)
                 for i, m in enumerate(matches_to_display):
                     with cols[i % 2]:
                         with st.container():
-                            # CSS Class Wrapper
-                            st.markdown('<div class="match-card-container">', unsafe_allow_html=True)
                             
+                            # Datas
                             inf_h = STANDINGS_DB.get(m['hid'], {'rec': '', 'strk': '', 'rank': ''})
                             inf_a = STANDINGS_DB.get(m['aid'], {'rec': '', 'strk': '', 'rank': ''})
                             c_sh = "#4ade80" if 'W' in inf_h['strk'] else "#f87171"
@@ -370,90 +376,49 @@ with tab1:
                             ia_conf = m['prob']*100 if is_h_win else (1-m['prob'])*100
                             ia_code = TEAMS_DB.get(m['hid'] if is_h_win else m['aid'], {}).get('code', 'IA')
                             
-                            # --- MOBILE LAYOUT (Team - Team sur ligne 1) ---
-                            st.markdown(f"""
-                            <div class='mobile-view'>
-                                <div class='mobile-teams-row'>
-                                    <div class='mobile-team'>
-                                        <img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='35'><br>
-                                        <span class='team-name'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span><br>
-                                        <span class='team-meta'>#{inf_h['rank']}</span>
-                                    </div>
-                                    <div style='font-weight:bold; color:#666;'>VS</div>
-                                    <div class='mobile-team'>
-                                        <img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='35'><br>
-                                        <span class='team-name'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span><br>
-                                        <span class='team-meta'>#{inf_a['rank']}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                            # --- DESKTOP LAYOUT (3 colonnes) ---
-                            st.markdown("<div class='desktop-view' style='display:flex; justify-content:space-between; align-items:center;'>", unsafe_allow_html=True)
-                            c1, c2, c3 = st.columns([3, 4, 3])
-                            with c1:
-                                st.markdown(f"""
-                                <div class='team-col'>
-                                    <img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='45'>
-                                    <div class='team-name'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</div>
-                                    <div class='team-meta'>#{inf_h['rank']} ({inf_h['rec']})<br><span style='color:{c_sh}; font-weight:bold;'>{inf_h['strk']}</span></div>
-                                </div>""", unsafe_allow_html=True)
-                            with c2: st.empty() # Spacer desktop (la zone prono est commune dessous)
-                            with c3:
-                                st.markdown(f"""
-                                <div class='team-col'>
-                                    <img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='45'>
-                                    <div class='team-name'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</div>
-                                    <div class='team-meta'>#{inf_a['rank']} ({inf_a['rec']})<br><span style='color:{c_sa}; font-weight:bold;'>{inf_a['strk']}</span></div>
-                                </div>""", unsafe_allow_html=True)
-                            st.markdown("</div>", unsafe_allow_html=True)
-
-                            # --- ZONE PRONO (Commune Mobile/Desktop) ---
-                            # On utilise des colonnes Streamlit pour le centrage du bouton
-                            pc1, pc2, pc3 = st.columns([1, 4, 1])
-                            with pc2:
-                                st.markdown(f"""
-                                <div class='prono-container'>
-                                    <div class='prono-label'>IA PRONO</div>
-                                    <div class='prono-val'>{ia_code}</div>
-                                    <div class='prono-conf'>{ia_conf:.0f}%</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # USER INTERACTION
-                                has_voted = (m['u'] is not None and m['u'] != "")
-                                is_editing = st.session_state['edit_modes'].get(m['mid'], False)
-                                
-                                if has_voted and not is_editing:
-                                    u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
-                                    st.markdown(f"""
-                                        <div style='text-align:center; font-size:0.8em; margin-top:5px;'>
-                                            Choix IK: <b>{u_code}</b>
-                                        </div>
-                                    """, unsafe_allow_html=True)
-                                    # Bouton Modifier petit et centré
-                                    if st.button("Modifier", key=f"btn_mod_{m['mid']}", use_container_width=True):
-                                        st.session_state['edit_modes'][m['mid']] = True
-                                        st.rerun()
-                                else:
-                                    # Boutons Vote
-                                    b1, b2 = st.columns(2)
-                                    ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
-                                    ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
-                                    if b1.button(ch, key=f"bh_{m['mid']}", use_container_width=True):
-                                        save_user_vote(m['d'], m['h'], m['a'], m['h'])
-                                        st.rerun()
-                                    if b2.button(ca, key=f"ba_{m['mid']}", use_container_width=True):
-                                        save_user_vote(m['d'], m['h'], m['a'], m['a'])
-                                        st.rerun()
-
-                            st.markdown('</div>', unsafe_allow_html=True) # End Card Container
+                            has_voted = (m['u'] is not None and m['u'] != "")
+                            is_editing = st.session_state['edit_modes'].get(m['mid'], False)
+                            
+                            # CONSTRUCTION HTML SANS INDENTATION (POUR EVITER BUG CODE BLOCK)
+                            # Equipes
+                            html_teams = f"<div class='card-header'><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span><span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span></div><div class='vs-text'>VS</div><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span><span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span></div></div>"
+                            
+                            # IA Prono
+                            html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
+                            
+                            # User Choice
+                            html_user = ""
+                            if has_voted and not is_editing:
+                                u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
+                                html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div></div>"
+                            
+                            # FULL CARD
+                            st.markdown(f"<div class='unified-card'>{html_teams}<div class='prono-section'>{html_ia}{html_user}</div></div>", unsafe_allow_html=True)
+                            
+                            # ACTIONS
+                            st.markdown('<div class="action-container">', unsafe_allow_html=True)
+                            if has_voted and not is_editing:
+                                st.markdown('<div class="link-btn">', unsafe_allow_html=True)
+                                if st.button("Modifier", key=f"btn_mod_{m['mid']}"):
+                                    st.session_state['edit_modes'][m['mid']] = True
+                                    st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            else:
+                                b1, b2 = st.columns(2)
+                                ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
+                                ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
+                                if b1.button(ch, key=f"bh_{m['mid']}", use_container_width=True):
+                                    save_user_vote(m['d'], m['h'], m['a'], m['h'])
+                                    st.rerun()
+                                if b2.button(ca, key=f"ba_{m['mid']}", use_container_width=True):
+                                    save_user_vote(m['d'], m['h'], m['a'], m['a'])
+                                    st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
 
     elif st.session_state['schedule_data'] == {}:
         st.info("Aucun match.")
 
-    # 4. RESULTATS (Tableau HTML Zebra)
+    # 4. RESULTATS
     if os.path.exists(HISTORY_FILE):
         hist = pd.read_csv(HISTORY_FILE)
         finished = hist[hist['Result'].isin(['GAGNE', 'PERDU'])].copy()
@@ -462,8 +427,7 @@ with tab1:
             st.write("")
             st.markdown("#### 🏁 Derniers Résultats")
             
-            # Centrage du tableau résultats
-            c_res_main, _ = st.columns([1, 1]) # Limit width
+            c_res_main, _ = st.columns([1, 1]) 
             
             with c_res_main:
                 dates = sorted(finished['Date'].unique(), reverse=True)[:2]
@@ -480,26 +444,24 @@ with tab1:
                     except: d_fmt = d
                     
                     with st.expander(f"📅 {d_fmt} | IA: {ia_wins}/{len(day_rows)} | IK: {user_wins}/{len(day_rows)}", expanded=first_open):
-                        first_open = False # Seul le premier est ouvert
+                        first_open = False
                         
-                        # Construction HTML Table
                         html_table = "<table class='res-table'><tr><th>MATCH</th><th>WIN</th><th>IA</th><th>IK</th></tr>"
                         
                         for _, r in day_rows.iterrows():
                             match_str = f"{get_short_code(r['Home'])}-{get_short_code(r['Away'])}"
                             win_str = get_short_code(r['Real_Winner']) if pd.notna(r['Real_Winner']) else "?"
                             
-                            # Badges
-                            ia_cls = "badge-win" if r['Result'] == 'GAGNE' else "badge-loss"
-                            ia_txt = "OK" if r['Result'] == 'GAGNE' else "KO"
+                            col_ia = "#4ade80" if r['Result'] == 'GAGNE' else "#f87171"
+                            txt_ia = "OK" if r['Result'] == 'GAGNE' else "KO"
                             
-                            ik_txt = "-"
-                            ik_cls = "badge-neutral"
+                            txt_ik = "-"
+                            col_ik = "#666"
                             if 'User_Result' in r and pd.notna(r['User_Result']):
-                                ik_txt = "OK" if r['User_Result'] == 'GAGNE' else "KO" if r['User_Result'] == 'PERDU' else "-"
-                                ik_cls = "badge-win" if r['User_Result'] == 'GAGNE' else "badge-loss" if r['User_Result'] == 'PERDU' else "badge-neutral"
+                                txt_ik = "OK" if r['User_Result'] == 'GAGNE' else "KO" if r['User_Result'] == 'PERDU' else "-"
+                                col_ik = "#4ade80" if r['User_Result'] == 'GAGNE' else "#f87171" if r['User_Result'] == 'PERDU' else "#666"
 
-                            html_table += f"<tr><td>{match_str}</td><td>{win_str}</td><td class='{ia_cls}'>{ia_txt}</td><td class='{ik_cls}'>{ik_txt}</td></tr>"
+                            html_table += f"<tr><td>{match_str}</td><td>{win_str}</td><td style='color:{col_ia}; font-weight:bold;'>{txt_ia}</td><td style='color:{col_ik}; font-weight:bold;'>{txt_ik}</td></tr>"
                         
                         html_table += "</table>"
                         st.markdown(html_table, unsafe_allow_html=True)
@@ -508,7 +470,6 @@ with tab1:
 # TAB 2 : STATS
 # ==============================================================================
 with tab2:
-    # Centrage du tableau
     _, c_tab_center, _ = st.columns([1, 10, 1])
     
     with c_tab_center:
@@ -517,7 +478,6 @@ with tab2:
             df_hist = df_hist.fillna("")
             df_hist['Date'] = pd.to_datetime(df_hist['Date'], errors='coerce')
             
-            # FUSION LOGIC
             def merge_prono_res(prono, res):
                 if not prono or prono == "": return "..."
                 p_code = get_short_code(get_clean_name(prono))
@@ -550,8 +510,8 @@ with tab2:
                     "Home": st.column_config.TextColumn("Home", width="small"),
                     "Away": st.column_config.TextColumn("Away", width="small"),
                     "Winner": st.column_config.TextColumn("Winner", width="small"),
-                    "Prono IK": st.column_config.TextColumn("Prono IK", width="small"), # Réduit
-                    "Prono IA": st.column_config.TextColumn("Prono IA", width="small"), # Réduit
+                    "Prono IK": st.column_config.TextColumn("Prono IK", width="small"),
+                    "Prono IA": st.column_config.TextColumn("Prono IA", width="small"),
                     "Trust": st.column_config.TextColumn("Trust", width="small"),
                     "Type": st.column_config.TextColumn("Type", width="small"),
                 },
@@ -559,22 +519,33 @@ with tab2:
                 use_container_width=True
             )
             
-            if st.button("Supprimer la sélection"):
-                to_del_idx = edited[edited.Del == True].index
-                if not to_del_idx.empty:
-                    orig = pd.read_csv(HISTORY_FILE)
-                    orig.drop(to_del_idx, inplace=True)
-                    orig.to_csv(HISTORY_FILE, index=False)
-                    st.success("Supprimé"); time.sleep(0.5); st.rerun()
+            c_act1, c_act2 = st.columns(2)
+            with c_act1:
+                if st.button("Supprimer la sélection"):
+                    to_del_idx = edited[edited.Del == True].index
+                    if not to_del_idx.empty:
+                        orig = pd.read_csv(HISTORY_FILE)
+                        orig.drop(to_del_idx, inplace=True)
+                        orig.to_csv(HISTORY_FILE, index=False)
+                        st.success("Supprimé"); time.sleep(0.5); st.rerun()
+            with c_act2:
+                if st.button("Supprimer les doublons"):
+                     orig = pd.read_csv(HISTORY_FILE)
+                     orig.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last', inplace=True)
+                     orig.to_csv(HISTORY_FILE, index=False)
+                     st.success("Doublons supprimés"); time.sleep(0.5); st.rerun()
 
 # ==============================================================================
 # TAB 3 : ADMIN
 # ==============================================================================
 with tab3:
-    c1, c2 = st.columns(2)
-    with c1:
-        st.info(f"Modèle : {get_last_mod(MODEL_FILE)}")
-        if st.button("Force Update", type="primary"):
+    r1_c1, r1_c2 = st.columns(2)
+    with r1_c1: st.info(f"Données : {get_last_mod(GAMES_FILE)}")
+    with r1_c2: st.info(f"Modèle : {get_last_mod(MODEL_FILE)}")
+    
+    r2_c1, r2_c2 = st.columns(2)
+    with r2_c1:
+        if st.button("Force Update", type="primary", use_container_width=True):
             with st.status("Update...") as s:
                 run_script('src/data_nba.py', "Data", s)
                 run_script('src/features_nba.py', "Stats", s)
@@ -583,9 +554,8 @@ with tab3:
                 load_resources.clear()
                 s.update(label="Terminé", state="complete")
                 st.rerun()
-    with c2:
-        st.info(f"Données : {get_last_mod(GAMES_FILE)}")
-        if st.button("Entraînement"):
+    with r2_c2:
+        if st.button("Entraînement", use_container_width=True):
             with st.status("Training...") as s:
                 succ, msg, acc = train_nba.train_model()
                 if succ:
@@ -593,11 +563,9 @@ with tab3:
                     load_resources.clear()
                     s.update(label=f"Succès ({acc:.1%})", state="complete")
                 else: s.error(msg)
-                
+
     st.markdown("---")
     st.subheader("🔮 Ajout Manuel")
-    
-    # Restauration de l'ajout manuel
     cm1, cm2, cm3 = st.columns(3)
     team_names = [f"{v['code']} - {v['full']}" for k,v in TEAMS_DB.items()]
     hm = cm1.selectbox("Home", team_names, index=None)
