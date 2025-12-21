@@ -13,31 +13,39 @@ from src import train_nba
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
 
-# --- CSS (DESIGN UNIFIÉ) ---
+# --- CSS (DESIGN FINAL UNIFIÉ) ---
 st.markdown("""
 <style>
-    /* 1. HEADER & NAV STICKY */
+    /* 1. FOND GLOBAL (Override Streamlit Default) */
+    .stApp {
+        background-color: #262730 !important;
+    }
+
+    /* 2. HEADER & NAV STICKY */
+    header[data-testid="stHeader"] {
+        background-color: #262730 !important; /* On match le fond */
+    }
     div[data-testid="stTabs"] {
         position: sticky;
         top: 2.8rem;
-        background-color: #0e1117;
+        background-color: #262730 !important; /* On match le fond */
         z-index: 999;
         padding-top: 10px;
         margin-top: 0px;
-        border-bottom: 1px solid #333;
+        border-bottom: 1px solid #444;
     }
     
-    /* 2. CARD VISUELLE (Le bloc gris unique) */
+    /* 3. CARD VISUELLE */
     .unified-card {
-        background-color: #262730;
+        background-color: #262730; /* Même couleur que le fond = effet plat */
         border: 1px solid #444;
         border-radius: 12px;
         padding: 15px;
         margin-bottom: 0px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
     
-    /* 3. STRUCTURE INTERNE */
+    /* 4. STRUCTURE INTERNE */
     .card-header {
         display: flex;
         justify-content: space-between;
@@ -61,7 +69,7 @@ st.markdown("""
     .t-code { font-weight: bold; font-size: 1.3em; margin-top: 5px; line-height: 1; color: #fff; }
     .t-meta { font-size: 0.75em; color: #bbb; margin-top: 4px; }
     
-    /* 4. ZONE PRONOS */
+    /* 5. ZONE PRONOS */
     .prono-section {
         display: flex;
         flex-direction: column;
@@ -91,7 +99,7 @@ st.markdown("""
         text-align: center;
     }
     
-    /* 5. BOUTONS ACTIONS */
+    /* 6. BOUTONS ACTIONS */
     .action-container {
         margin-top: 5px;
         margin-bottom: 15px;
@@ -110,13 +118,14 @@ st.markdown("""
     }
     .link-btn button:hover { color: #fff !important; }
 
-    /* 6. TABLEAU RESULTATS HTML */
+    /* 7. TABLEAU RESULTATS HTML */
     .res-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
     .res-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; }
     .res-table td { border-bottom: 1px solid #333; padding: 8px 5px; color: #ddd; }
-    .res-table tr:nth-child(even) { background-color: #1f2129; }
+    .res-table tr:nth-child(even) { background-color: #2d2f38; } /* Légèrement plus clair que le fond */
+    .res-table tr:nth-child(odd) { background-color: #262730; }
     
-    /* 7. MOBILE */
+    /* 8. MOBILE */
     @media (max-width: 640px) {
         .t-code { font-size: 1.1em; }
         .stButton button { width: 100%; }
@@ -359,14 +368,13 @@ with tab1:
                     if prob is not None and h_id != 0:
                         matches_to_display.append({'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 'prob': prob, 'u': user_bet_val, 'mid': mid, 'd': date_key})
 
-            # --- RENDER CARDS (STRUCTURE PLATE SANS INDENTATION MARKDOWN) ---
+            # --- RENDER CARDS ---
             if matches_to_display:
                 cols = st.columns(2)
                 for i, m in enumerate(matches_to_display):
                     with cols[i % 2]:
                         with st.container():
                             
-                            # Datas
                             inf_h = STANDINGS_DB.get(m['hid'], {'rec': '', 'strk': '', 'rank': ''})
                             inf_a = STANDINGS_DB.get(m['aid'], {'rec': '', 'strk': '', 'rank': ''})
                             c_sh = "#4ade80" if 'W' in inf_h['strk'] else "#f87171"
@@ -379,20 +387,16 @@ with tab1:
                             has_voted = (m['u'] is not None and m['u'] != "")
                             is_editing = st.session_state['edit_modes'].get(m['mid'], False)
                             
-                            # CONSTRUCTION HTML SANS INDENTATION (POUR EVITER BUG CODE BLOCK)
-                            # Equipes
+                            # CARD HTML
                             html_teams = f"<div class='card-header'><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span><span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span></div><div class='vs-text'>VS</div><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span><span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span></div></div>"
                             
-                            # IA Prono
                             html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
                             
-                            # User Choice
                             html_user = ""
                             if has_voted and not is_editing:
                                 u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
                                 html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div></div>"
                             
-                            # FULL CARD
                             st.markdown(f"<div class='unified-card'>{html_teams}<div class='prono-section'>{html_ia}{html_user}</div></div>", unsafe_allow_html=True)
                             
                             # ACTIONS
@@ -407,10 +411,11 @@ with tab1:
                                 b1, b2 = st.columns(2)
                                 ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
                                 ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
-                                if b1.button(ch, key=f"bh_{m['mid']}", use_container_width=True):
+                                # FIX WARNING 2025: width="stretch"
+                                if b1.button(ch, key=f"bh_{m['mid']}", width="stretch"):
                                     save_user_vote(m['d'], m['h'], m['a'], m['h'])
                                     st.rerun()
-                                if b2.button(ca, key=f"ba_{m['mid']}", use_container_width=True):
+                                if b2.button(ca, key=f"ba_{m['mid']}", width="stretch"):
                                     save_user_vote(m['d'], m['h'], m['a'], m['a'])
                                     st.rerun()
                             st.markdown('</div>', unsafe_allow_html=True)
@@ -502,6 +507,7 @@ with tab2:
             display_df = display_df.sort_index(ascending=False)
             display_df.insert(len(display_df.columns), "Del", False)
             
+            # FIX WARNING 2025: width="stretch"
             edited = st.data_editor(
                 display_df,
                 column_config={
@@ -516,7 +522,7 @@ with tab2:
                     "Type": st.column_config.TextColumn("Type", width="small"),
                 },
                 hide_index=True,
-                use_container_width=True
+                width="stretch"
             )
             
             c_act1, c_act2 = st.columns(2)
@@ -545,7 +551,8 @@ with tab3:
     
     r2_c1, r2_c2 = st.columns(2)
     with r2_c1:
-        if st.button("Force Update", type="primary", use_container_width=True):
+        # FIX WARNING 2025: width="stretch"
+        if st.button("Force Update", type="primary", width="stretch"):
             with st.status("Update...") as s:
                 run_script('src/data_nba.py', "Data", s)
                 run_script('src/features_nba.py', "Stats", s)
@@ -555,7 +562,8 @@ with tab3:
                 s.update(label="Terminé", state="complete")
                 st.rerun()
     with r2_c2:
-        if st.button("Entraînement", use_container_width=True):
+        # FIX WARNING 2025: width="stretch"
+        if st.button("Entraînement", width="stretch"):
             with st.status("Training...") as s:
                 succ, msg, acc = train_nba.train_model()
                 if succ:
