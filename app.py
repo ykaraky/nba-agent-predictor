@@ -7,33 +7,136 @@ import sys
 import subprocess
 import time
 from nba_api.stats.static import teams
-from nba_api.stats.endpoints import scoreboardv2
+from nba_api.stats.endpoints import scoreboardv2, leaguestandingsv3
 from src import train_nba
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
 
+# --- CSS (DESIGN FINAL UNIFIÉ) ---
 st.markdown("""
 <style>
-    .match-card {
-        background-color: #262730;
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #3e3e3e;
-        text-align: center;
-        margin-bottom: 15px;
+    /* 1. FOND GLOBAL (Override Streamlit Default) */
+    .stApp {
+        background-color: #262730 !important;
     }
-    .team-label { color: #aaa; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
-    .score-txt { font-size: 1.8em; font-weight: bold; margin: 5px 0; }
-    .win-green { color: #4ade80; }
-    .win-red { color: #f87171; }
-    .section-title { font-size: 1.2em; font-weight: bold; margin-top: 20px; margin-bottom: 10px; color: #fff; border-left: 4px solid #00d4ff; padding-left: 10px; }
+
+    /* 2. HEADER & NAV STICKY */
+    header[data-testid="stHeader"] {
+        background-color: #262730 !important; /* On match le fond */
+    }
+    div[data-testid="stTabs"] {
+        position: sticky;
+        top: 2.8rem;
+        background-color: #262730 !important; /* On match le fond */
+        z-index: 999;
+        padding-top: 10px;
+        margin-top: 0px;
+        border-bottom: 1px solid #444;
+    }
+    
+    /* 3. CARD VISUELLE */
+    .unified-card {
+        background-color: #262730; /* Même couleur que le fond = effet plat */
+        border: 1px solid #444;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 0px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+    
+    /* 4. STRUCTURE INTERNE */
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 12px;
+    }
+    
+    .team-box {
+        flex: 1;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .vs-text { font-weight: bold; color: #666; font-size: 0.8em; padding: 0 10px; }
+    
+    /* Typo Equipes */
+    .t-code { font-weight: bold; font-size: 1.3em; margin-top: 5px; line-height: 1; color: #fff; }
+    .t-meta { font-size: 0.75em; color: #bbb; margin-top: 4px; }
+    
+    /* 5. ZONE PRONOS */
+    .prono-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .prono-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        font-size: 0.9em;
+        width: 100%;
+    }
+    
+    .p-lbl { color: #888; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
+    .p-val { color: #fff; font-weight: 900; font-size: 1.3em; }
+    .p-conf { color: #00d4ff; font-size: 0.85em; font-weight: bold; }
+    
+    .user-choice-row {
+        margin-top: 5px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* 6. BOUTONS ACTIONS */
+    .action-container {
+        margin-top: 5px;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    
+    .link-btn button {
+        background: transparent !important;
+        border: none !important;
+        color: #666 !important;
+        text-decoration: underline !important;
+        padding: 0 !important;
+        font-size: 0.75em !important;
+        height: auto !important;
+        margin-top: 2px !important;
+    }
+    .link-btn button:hover { color: #fff !important; }
+
+    /* 7. TABLEAU RESULTATS HTML */
+    .res-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+    .res-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; }
+    .res-table td { border-bottom: 1px solid #333; padding: 8px 5px; color: #ddd; }
+    .res-table tr:nth-child(even) { background-color: #2d2f38; } /* Légèrement plus clair que le fond */
+    .res-table tr:nth-child(odd) { background-color: #262730; }
+    
+    /* 8. MOBILE */
+    @media (max-width: 640px) {
+        .t-code { font-size: 1.1em; }
+        .stButton button { width: 100%; }
+        .unified-card { padding: 10px; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 2. SESSIONS ---
 if 'schedule_data' not in st.session_state: st.session_state['schedule_data'] = {}
-if 'last_update' not in st.session_state: st.session_state['last_update'] = None
+if 'edit_modes' not in st.session_state: st.session_state['edit_modes'] = {}
 
 DATA_DIR = "data"
 MODEL_DIR = "models"
@@ -44,7 +147,6 @@ GAMES_FILE = os.path.join(DATA_DIR, "nba_games_ready.csv")
 MODEL_FILE = os.path.join(MODEL_DIR, "nba_predictor.json")
 
 # --- 3. FONCTIONS ---
-
 def get_teams_dict():
     nba_teams = teams.get_teams()
     return {t['id']: {'full': t['full_name'], 'code': t['abbreviation'], 'nick': t['nickname']} for t in nba_teams}
@@ -57,12 +159,30 @@ def load_resources():
     df = None
     try:
         if os.path.exists(MODEL_FILE): model.load_model(MODEL_FILE)
-        else: model = None
         if os.path.exists(GAMES_FILE):
             df = pd.read_csv(GAMES_FILE)
             df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
     except: pass
     return model, df
+
+@st.cache_data(ttl=3600)
+def get_standings_db():
+    try:
+        standings = leaguestandingsv3.LeagueStandingsV3()
+        df = standings.standings.get_data_frame()
+        res = {}
+        for _, row in df.iterrows():
+            tid = row['TeamID']
+            streak_val = row['CurrentStreak']
+            if isinstance(streak_val, int) or (isinstance(streak_val, str) and streak_val.lstrip('-').isdigit()):
+                val = int(streak_val)
+                streak_short = f"W{abs(val)}" if val > 0 else f"L{abs(val)}"
+            else: streak_short = str(streak_val)
+            res[tid] = {'rec': row['Record'], 'strk': streak_short, 'rank': row['PlayoffRank']}
+        return res
+    except: return {}
+
+STANDINGS_DB = get_standings_db()
 
 def show_logo(team_id, width=50):
     path = f"{LOGOS_DIR}/{team_id}.svg"
@@ -74,9 +194,8 @@ def run_script(path, desc, container):
     try:
         subprocess.run([sys.executable, path], check=True, capture_output=True, text=True)
         return True
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         container.error(f"Erreur {desc}")
-        st.code(e.stderr)
         return False
 
 def get_clean_name(name_input):
@@ -98,11 +217,9 @@ def get_prediction(model, df_history, h_id, a_id):
     h_games = df_history[df_history['TEAM_ID'] == h_id].sort_values('GAME_DATE')
     a_games = df_history[df_history['TEAM_ID'] == a_id].sort_values('GAME_DATE')
     if h_games.empty or a_games.empty: return None, None
-
     lh, la = h_games.iloc[-1], a_games.iloc[-1]
     today = pd.to_datetime(datetime.now().strftime('%Y-%m-%d'))
     rh, ra = (today - lh['GAME_DATE']).days, (today - la['GAME_DATE']).days
-    
     row = pd.DataFrame([{
         'EFG_PCT_LAST_5_HOME': lh['EFG_PCT_LAST_5'], 'EFG_PCT_LAST_5_AWAY': la['EFG_PCT_LAST_5'],
         'TOV_PCT_LAST_5_HOME': lh['TOV_PCT_LAST_5'], 'TOV_PCT_LAST_5_AWAY': la['TOV_PCT_LAST_5'],
@@ -113,157 +230,131 @@ def get_prediction(model, df_history, h_id, a_id):
         'DIFF_WIN': lh['WIN_LAST_5'] - la['WIN_LAST_5'],
         'DIFF_REST': min(rh, 7) - min(ra, 7)
     }])
-    
     return model.predict_proba(row)[0][1], {'rh': rh, 'ra': ra}
 
 def save_bet_auto(date, h_name, a_name, w_name, conf):
     if not os.path.exists(HISTORY_FILE): 
-        with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner\n")
+        with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Prediction,User_Result\n")
     try:
         df = pd.read_csv(HISTORY_FILE)
-        # Check doublon strict
         if not df[(df['Date'] == date) & (df['Home'] == h_name) & (df['Away'] == a_name)].empty: return
     except: pass
     with open(HISTORY_FILE, 'a') as f:
-        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Auto,,")
+        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Auto,,,")
+
+def save_user_vote(date_str, h_name, a_name, user_choice):
+    if not os.path.exists(HISTORY_FILE): return
+    try:
+        df = pd.read_csv(HISTORY_FILE)
+        if 'User_Prediction' not in df.columns: df['User_Prediction'] = None
+        mask = (df['Date'] == date_str) & (df['Home'] == h_name) & (df['Away'] == a_name)
+        if df[mask].empty: return
+        idx = df[mask].index[0]
+        df.at[idx, 'User_Prediction'] = user_choice
+        df.to_csv(HISTORY_FILE, index=False)
+        st.session_state['edit_modes'][f"{h_name} vs {a_name}"] = False
+    except: pass
 
 def get_last_mod(filepath):
-    if os.path.exists(filepath):
-        return datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%d/%m %H:%M')
+    if os.path.exists(filepath): return datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%d/%m %H:%M')
     return "N/A"
 
-# FONCTION CLÉ : Scan des jours
 def scan_schedule(days_to_check=7):
     found_days = {}
     check_date = datetime.now()
     count_found = 0
-    
     for _ in range(days_to_check):
         str_date = check_date.strftime('%Y-%m-%d')
         day_games_list = []
-        
-        # A. API
         try:
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
             raw = board.game_header.get_data_frame()
             clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             if not clean.empty: day_games_list.append(clean)
         except: pass
-        
-        # B. HISTORIQUE (Pour les manuels)
         if os.path.exists(HISTORY_FILE):
             try:
                 hist = pd.read_csv(HISTORY_FILE)
                 manual_today = hist[(hist['Date'] == str_date)]
                 if not manual_today.empty: day_games_list.append(manual_today)
             except: pass
-        
         if day_games_list:
             found_days[str_date] = day_games_list
             count_found += 1
-        
         if count_found >= 2: break
         check_date += timedelta(days=1)
-        
     return found_days
 
 # --- INIT ---
 model, df_stats = load_resources()
-id_to_name = {k: v['full'] for k, v in TEAMS_DB.items()}
 
 # --- HEADER ---
-c_head1, c_head2 = st.columns([1, 6])
+c_head1, c_head2 = st.columns([1, 8])
 with c_head1:
-    if os.path.exists(APP_LOGO): st.image(APP_LOGO, width=100)
+    if os.path.exists(APP_LOGO): st.image(APP_LOGO, width=60)
     else: st.title("🏀")
 with c_head2:
-    st.markdown("## NBA | AGENT PREDiKTOR")
-    st.caption("Intelligence Artificielle d'aide à la décision")
+    st.markdown("<h3 style='margin:0; padding-top:10px;'>NBA AGENT PREDIKTOR</h3>", unsafe_allow_html=True)
 
 # --- NAVIGATION ---
-tab1, tab2, tab3 = st.tabs(["📅 MATCHS", "📈 STATS", "🛡️ ADMIN"])
+tab1, tab2, tab3 = st.tabs(["MATCHS", "STATS", "ADMIN"])
 
 # ==============================================================================
-# TAB 1 : MATCHS (AUTO SCAN)
+# TAB 1 : MATCHS
 # ==============================================================================
 with tab1:
-    
-    # 1. AUTO SCAN AU DEMARRAGE (Si vide)
     if not st.session_state['schedule_data']:
-        with st.spinner("Recherche des matchs à venir..."):
+        with st.spinner("Chargement..."):
             st.session_state['schedule_data'] = scan_schedule()
-            st.session_state['last_update'] = datetime.now().strftime('%H:%M')
 
-    # INFO BARRE
-    if st.session_state['last_update']:
-        st.caption(f"Dernier scan : {st.session_state['last_update']}")
-
-    # 3. AFFICHAGE DES MATCHS
     schedule = st.session_state.get('schedule_data', {})
     
     if schedule:
-        # On charge l'historique UNE FOIS pour la cohérence
         hist_df = pd.DataFrame()
-        if os.path.exists(HISTORY_FILE):
-            hist_df = pd.read_csv(HISTORY_FILE)
+        if os.path.exists(HISTORY_FILE): hist_df = pd.read_csv(HISTORY_FILE)
 
         for date_key, dfs_list in schedule.items():
             is_today = date_key == datetime.now().strftime('%Y-%m-%d')
-            # FORMAT DATE : DD.MM.YYYY
-            try:
-                date_obj = datetime.strptime(date_key, '%Y-%m-%d')
-                date_fmt = date_obj.strftime('%d.%m.%Y')
-            except: date_fmt = date_key
+            try: d_fmt = datetime.strptime(date_key, '%Y-%m-%d').strftime('%d.%m.%Y')
+            except: d_fmt = date_key
             
-            titre = f"Affiches de ce soir ({date_fmt})" if is_today else f"Affiches du {date_fmt}"
+            st.markdown(f"#### {'🔥 Ce Soir' if is_today else '📅 ' + d_fmt}")
             
-            st.markdown(f"<div class='section-title'>{titre}</div>", unsafe_allow_html=True)
-            
-            cols = st.columns(2)
-            card_count = 0
-            seen_matches = [] 
-
+            matches_to_display = []
+            seen = []
             for df_source in dfs_list:
                 for index, row in df_source.iterrows():
-                    
                     h_id, a_id = 0, 0
                     h_name, a_name = "", ""
-                    prob, det = None, None
-                    source_type = "API"
-                    
-                    # 1. RECUPERATION DONNEES
-                    if 'HOME_TEAM_ID' in row: # API
+                    prob = None
+                    if 'HOME_TEAM_ID' in row: 
                         h_id, a_id = row['HOME_TEAM_ID'], row['VISITOR_TEAM_ID']
                         if h_id in TEAMS_DB: h_name = TEAMS_DB[h_id]['full']
                         if a_id in TEAMS_DB: a_name = TEAMS_DB[a_id]['full']
-                    elif 'Home' in row: # MANUEL
-                        source_type = "History"
+                    elif 'Home' in row:
                         h_name, a_name = row['Home'], row['Away']
                         h_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(h_name)), 0)
                         a_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(a_name)), 0)
+                    
+                    mid = f"{h_name}vs{a_name}"
+                    if mid in seen: continue
+                    seen.append(mid)
 
-                    match_id = f"{h_name} vs {a_name}"
-                    if match_id in seen_matches: continue
-                    seen_matches.append(match_id)
-
-                    # 2. LOGIQUE PRIORITÉ HISTORIQUE
                     existing_bet = pd.DataFrame()
+                    user_bet_val = None
                     if not hist_df.empty:
-                        existing_bet = hist_df[
-                            (hist_df['Date'] == date_key) & 
-                            (hist_df['Home'] == h_name) & 
-                            (hist_df['Away'] == a_name)
-                        ]
+                        existing_bet = hist_df[(hist_df['Date'] == date_key) & (hist_df['Home'] == h_name) & (hist_df['Away'] == a_name)]
                     
                     if not existing_bet.empty:
                         saved_row = existing_bet.iloc[0]
                         winner = saved_row['Predicted_Winner']
-                        conf_str = str(saved_row['Confidence']).replace('%', '')
+                        if 'User_Prediction' in saved_row and pd.notna(saved_row['User_Prediction']):
+                            user_bet_val = saved_row['User_Prediction']
                         try:
+                            conf_str = str(saved_row['Confidence']).replace('%', '')
                             conf_val = float(conf_str)/100
                             is_h_win = (winner == h_name)
                             prob = conf_val if is_h_win else (1-conf_val)
-                            det = {'rh':0, 'ra':0}
                         except: prob = None
                     else:
                         if h_id != 0:
@@ -272,135 +363,208 @@ with tab1:
                                 w = h_name if prob > 0.5 else a_name
                                 c = prob*100 if prob > 0.5 else (1-prob)*100
                                 save_bet_auto(date_key, h_name, a_name, w, c)
-
-                    # 3. RENDU
+                                st.rerun()
+                    
                     if prob is not None and h_id != 0:
-                        with cols[card_count % 2]:
-                            with st.container(border=True):
-                                is_h_win = prob > 0.5
-                                val_disp = prob*100 if is_h_win else (1-prob)*100
-                                col_txt = "win-green" if is_h_win else "win-red"
-                                
-                                c1, c2, c3 = st.columns([1,2,1])
-                                with c1:
-                                    show_logo(h_id)
-                                    st.caption(TEAMS_DB.get(h_id, {}).get('nick', h_name))
-                                with c3:
-                                    show_logo(a_id)
-                                    st.caption(TEAMS_DB.get(a_id, {}).get('nick', a_name))
-                                with c2:
-                                    arr = "❮" if is_h_win else "❯"
-                                    if not is_h_win: arr = "❯"
-                                    else: arr = "❮"
-                                    
-                                    st.markdown(f"<div class='score-txt {col_txt}'>{arr} {val_disp:.0f}%</div>", unsafe_allow_html=True)
-                                    if source_type == "History": st.caption("Manuel")
-                        card_count += 1
+                        matches_to_display.append({'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 'prob': prob, 'u': user_bet_val, 'mid': mid, 'd': date_key})
+
+            # --- RENDER CARDS ---
+            if matches_to_display:
+                cols = st.columns(2)
+                for i, m in enumerate(matches_to_display):
+                    with cols[i % 2]:
+                        with st.container():
+                            
+                            inf_h = STANDINGS_DB.get(m['hid'], {'rec': '', 'strk': '', 'rank': ''})
+                            inf_a = STANDINGS_DB.get(m['aid'], {'rec': '', 'strk': '', 'rank': ''})
+                            c_sh = "#4ade80" if 'W' in inf_h['strk'] else "#f87171"
+                            c_sa = "#4ade80" if 'W' in inf_a['strk'] else "#f87171"
+                            
+                            is_h_win = m['prob'] > 0.5
+                            ia_conf = m['prob']*100 if is_h_win else (1-m['prob'])*100
+                            ia_code = TEAMS_DB.get(m['hid'] if is_h_win else m['aid'], {}).get('code', 'IA')
+                            
+                            has_voted = (m['u'] is not None and m['u'] != "")
+                            is_editing = st.session_state['edit_modes'].get(m['mid'], False)
+                            
+                            # CARD HTML
+                            html_teams = f"<div class='card-header'><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span><span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span></div><div class='vs-text'>VS</div><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span><span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span></div></div>"
+                            
+                            html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
+                            
+                            html_user = ""
+                            if has_voted and not is_editing:
+                                u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
+                                html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div></div>"
+                            
+                            st.markdown(f"<div class='unified-card'>{html_teams}<div class='prono-section'>{html_ia}{html_user}</div></div>", unsafe_allow_html=True)
+                            
+                            # ACTIONS
+                            st.markdown('<div class="action-container">', unsafe_allow_html=True)
+                            if has_voted and not is_editing:
+                                st.markdown('<div class="link-btn">', unsafe_allow_html=True)
+                                if st.button("Modifier", key=f"btn_mod_{m['mid']}"):
+                                    st.session_state['edit_modes'][m['mid']] = True
+                                    st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            else:
+                                b1, b2 = st.columns(2)
+                                ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
+                                ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
+                                # FIX WARNING 2025: width="stretch"
+                                if b1.button(ch, key=f"bh_{m['mid']}", width="stretch"):
+                                    save_user_vote(m['d'], m['h'], m['a'], m['h'])
+                                    st.rerun()
+                                if b2.button(ca, key=f"ba_{m['mid']}", width="stretch"):
+                                    save_user_vote(m['d'], m['h'], m['a'], m['a'])
+                                    st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
 
     elif st.session_state['schedule_data'] == {}:
-        st.warning("Aucun match trouvé pour les 7 prochains jours.")
+        st.info("Aucun match.")
 
-    st.write("")
-    st.write("")
-
-    # 4. BILAN FLASH
+    # 4. RESULTATS
     if os.path.exists(HISTORY_FILE):
         hist = pd.read_csv(HISTORY_FILE)
         finished = hist[hist['Result'].isin(['GAGNE', 'PERDU'])].copy()
+        
         if not finished.empty:
-            st.markdown("<div class='section-title'>Derniers Résultats</div>", unsafe_allow_html=True)
-            dates = sorted(finished['Date'].unique(), reverse=True)[:2]
-            for d in dates:
-                day_rows = finished[finished['Date'] == d]
-                wins = len(day_rows[day_rows['Result'] == 'GAGNE'])
+            st.write("")
+            st.markdown("#### 🏁 Derniers Résultats")
+            
+            c_res_main, _ = st.columns([1, 1]) 
+            
+            with c_res_main:
+                dates = sorted(finished['Date'].unique(), reverse=True)[:2]
+                first_open = True
                 
-                # Format Date DD.MM.YYYY
-                try: d_fmt = datetime.strptime(d, '%Y-%m-%d').strftime('%d.%m.%Y')
-                except: d_fmt = d
-                
-                with st.expander(f"📅 {d_fmt} ({wins}/{len(day_rows)})", expanded=True):
-                    for _, r in day_rows.iterrows():
-                        icon = "✅" if r['Result'] == "GAGNE" else "❌"
-                        h_s = get_short_code(get_clean_name(r['Home']))
-                        a_s = get_short_code(get_clean_name(r['Away']))
-                        p_s = get_short_code(get_clean_name(r['Predicted_Winner']))
-                        st.markdown(f"**{icon} {h_s} vs {a_s}** -> {p_s} ({r['Confidence']})")
+                for d in dates:
+                    day_rows = finished[finished['Date'] == d]
+                    ia_wins = len(day_rows[day_rows['Result'] == 'GAGNE'])
+                    user_wins = 0
+                    if 'User_Result' in day_rows.columns:
+                        user_wins = len(day_rows[day_rows['User_Result'] == 'GAGNE'])
+                    
+                    try: d_fmt = datetime.strptime(d, '%Y-%m-%d').strftime('%d.%m')
+                    except: d_fmt = d
+                    
+                    with st.expander(f"📅 {d_fmt} | IA: {ia_wins}/{len(day_rows)} | IK: {user_wins}/{len(day_rows)}", expanded=first_open):
+                        first_open = False
+                        
+                        html_table = "<table class='res-table'><tr><th>MATCH</th><th>WIN</th><th>IA</th><th>IK</th></tr>"
+                        
+                        for _, r in day_rows.iterrows():
+                            match_str = f"{get_short_code(r['Home'])}-{get_short_code(r['Away'])}"
+                            win_str = get_short_code(r['Real_Winner']) if pd.notna(r['Real_Winner']) else "?"
+                            
+                            col_ia = "#4ade80" if r['Result'] == 'GAGNE' else "#f87171"
+                            txt_ia = "OK" if r['Result'] == 'GAGNE' else "KO"
+                            
+                            txt_ik = "-"
+                            col_ik = "#666"
+                            if 'User_Result' in r and pd.notna(r['User_Result']):
+                                txt_ik = "OK" if r['User_Result'] == 'GAGNE' else "KO" if r['User_Result'] == 'PERDU' else "-"
+                                col_ik = "#4ade80" if r['User_Result'] == 'GAGNE' else "#f87171" if r['User_Result'] == 'PERDU' else "#666"
+
+                            html_table += f"<tr><td>{match_str}</td><td>{win_str}</td><td style='color:{col_ia}; font-weight:bold;'>{txt_ia}</td><td style='color:{col_ik}; font-weight:bold;'>{txt_ik}</td></tr>"
+                        
+                        html_table += "</table>"
+                        st.markdown(html_table, unsafe_allow_html=True)
 
 # ==============================================================================
 # TAB 2 : STATS
 # ==============================================================================
 with tab2:
-    st.markdown("<div class='section-title'>Historique Complet</div>", unsafe_allow_html=True)
-    if os.path.exists(HISTORY_FILE):
-        df_hist = pd.read_csv(HISTORY_FILE)
-        if 'Real_Winner' not in df_hist.columns: df_hist['Real_Winner'] = "En attente..."
-        df_hist = df_hist.fillna("")
-        
-        # FIX DATE FORMAT : Convertir la colonne 'Date' en datetime pour être sûr
-        df_hist['Date'] = pd.to_datetime(df_hist['Date'], errors='coerce')
-        
-        df_hist['Home_Clean'] = df_hist['Home'].apply(get_clean_name)
-        df_hist['Away_Clean'] = df_hist['Away'].apply(get_clean_name)
-        df_hist['Prono_Short'] = df_hist['Predicted_Winner'].apply(lambda x: get_short_code(get_clean_name(x)))
-        df_hist['Winner_Short'] = df_hist['Real_Winner'].apply(lambda x: get_short_code(get_clean_name(x)) if x not in ["En attente...", "None", ""] else "...")
-        
-        display_df = df_hist[['Date', 'Home_Clean', 'Away_Clean', 'Prono_Short', 'Winner_Short', 'Result', 'Confidence', 'Type']].copy()
-        display_df.columns = ['Date', 'Home', 'Away', 'Prono', 'Vainqueur', 'Result', 'Confidence', 'Type']
-        
-        display_df = display_df.sort_index(ascending=False)
-        display_df.insert(len(display_df.columns), "Del", False)
-        
-        edited = st.data_editor(
-            display_df,
-            column_config={
-                "Del": st.column_config.CheckboxColumn("🗑️", width="small"),
-                "Date": st.column_config.DateColumn("Date", format="DD.MM.YYYY"), # C'EST ICI QUE ÇA PLANTAIT
-                "Result": st.column_config.TextColumn("Res"),
-                "Confidence": st.column_config.TextColumn("Conf"),
-            },
-            hide_index=True,
-            use_container_width=True
-        )
-        
-        st.write("")
-        c1, c2 = st.columns(2)
-        if c1.button("Supprimer la sélection"):
-            to_del_idx = edited[edited.Del == True].index
-            if not to_del_idx.empty:
-                hist_new = df_hist.drop(to_del_idx)
-                cols_save = ['Date', 'Home', 'Away', 'Predicted_Winner', 'Confidence', 'Type', 'Result', 'Real_Winner']
-                # On remet la date en string YYYY-MM-DD pour la sauvegarde CSV
-                hist_new['Date'] = hist_new['Date'].dt.strftime('%Y-%m-%d')
-                hist_new[cols_save].to_csv(HISTORY_FILE, index=False)
-                st.success("Nettoyé !"); time.sleep(0.5); st.rerun()
-        if c2.button("Supprimer tous les doublons"):
-            df_hist.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last').to_csv(HISTORY_FILE, index=False)
-            st.toast("Doublons nettoyés")
-            time.sleep(0.5); st.rerun()
+    _, c_tab_center, _ = st.columns([1, 10, 1])
+    
+    with c_tab_center:
+        if os.path.exists(HISTORY_FILE):
+            df_hist = pd.read_csv(HISTORY_FILE)
+            df_hist = df_hist.fillna("")
+            df_hist['Date'] = pd.to_datetime(df_hist['Date'], errors='coerce')
+            
+            def merge_prono_res(prono, res):
+                if not prono or prono == "": return "..."
+                p_code = get_short_code(get_clean_name(prono))
+                if not res or res not in ['GAGNE', 'PERDU']: return f"{p_code}"
+                icon = "✅" if res == 'GAGNE' else "❌"
+                return f"{icon} {p_code}"
+
+            df_hist['Home'] = df_hist['Home'].apply(lambda x: get_short_code(get_clean_name(x)))
+            df_hist['Away'] = df_hist['Away'].apply(lambda x: get_short_code(get_clean_name(x)))
+            df_hist['Winner'] = df_hist['Real_Winner'].apply(lambda x: get_short_code(get_clean_name(x)) if x not in ["En attente...", ""] else "...")
+            
+            df_hist['Prono IA'] = df_hist.apply(lambda x: merge_prono_res(x['Predicted_Winner'], x['Result']), axis=1)
+            
+            if 'User_Prediction' not in df_hist.columns: df_hist['User_Prediction'] = ""
+            if 'User_Result' not in df_hist.columns: df_hist['User_Result'] = ""
+            df_hist['Prono IK'] = df_hist.apply(lambda x: merge_prono_res(x['User_Prediction'], x['User_Result']), axis=1)
+
+            df_hist['Trust'] = df_hist['Confidence']
+
+            cols_order = ['Date', 'Home', 'Away', 'Winner', 'Prono IK', 'Prono IA', 'Trust', 'Type']
+            display_df = df_hist[cols_order].copy()
+            display_df = display_df.sort_index(ascending=False)
+            display_df.insert(len(display_df.columns), "Del", False)
+            
+            # FIX WARNING 2025: width="stretch"
+            edited = st.data_editor(
+                display_df,
+                column_config={
+                    "Del": st.column_config.CheckboxColumn("🗑️", width="small"),
+                    "Date": st.column_config.DateColumn("Date", format="DD.MM"),
+                    "Home": st.column_config.TextColumn("Home", width="small"),
+                    "Away": st.column_config.TextColumn("Away", width="small"),
+                    "Winner": st.column_config.TextColumn("Winner", width="small"),
+                    "Prono IK": st.column_config.TextColumn("Prono IK", width="small"),
+                    "Prono IA": st.column_config.TextColumn("Prono IA", width="small"),
+                    "Trust": st.column_config.TextColumn("Trust", width="small"),
+                    "Type": st.column_config.TextColumn("Type", width="small"),
+                },
+                hide_index=True,
+                width="stretch"
+            )
+            
+            c_act1, c_act2 = st.columns(2)
+            with c_act1:
+                if st.button("Supprimer la sélection"):
+                    to_del_idx = edited[edited.Del == True].index
+                    if not to_del_idx.empty:
+                        orig = pd.read_csv(HISTORY_FILE)
+                        orig.drop(to_del_idx, inplace=True)
+                        orig.to_csv(HISTORY_FILE, index=False)
+                        st.success("Supprimé"); time.sleep(0.5); st.rerun()
+            with c_act2:
+                if st.button("Supprimer les doublons"):
+                     orig = pd.read_csv(HISTORY_FILE)
+                     orig.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last', inplace=True)
+                     orig.to_csv(HISTORY_FILE, index=False)
+                     st.success("Doublons supprimés"); time.sleep(0.5); st.rerun()
 
 # ==============================================================================
 # TAB 3 : ADMIN
 # ==============================================================================
 with tab3:
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("🛠️ Maintenance")
-        st.info(f"Cerveau : {get_last_mod(MODEL_FILE)}")
-        st.info(f"Données : {get_last_mod(GAMES_FILE)}")
-        
-        if st.button("Forcer Mise à jour Scores", type="primary"):
-            with st.status("Travail en cours...") as s:
+    r1_c1, r1_c2 = st.columns(2)
+    with r1_c1: st.info(f"Données : {get_last_mod(GAMES_FILE)}")
+    with r1_c2: st.info(f"Modèle : {get_last_mod(MODEL_FILE)}")
+    
+    r2_c1, r2_c2 = st.columns(2)
+    with r2_c1:
+        # FIX WARNING 2025: width="stretch"
+        if st.button("Force Update", type="primary", width="stretch"):
+            with st.status("Update...") as s:
                 run_script('src/data_nba.py', "Data", s)
                 run_script('src/features_nba.py', "Stats", s)
                 run_script('src/verify_bets.py', "Verif", s)
-                st.session_state['games_data'] = None
                 st.session_state['schedule_data'] = {} 
                 load_resources.clear()
                 s.update(label="Terminé", state="complete")
                 st.rerun()
-                
-        if st.button("Mise à jour Hebdo (Lundi)", use_container_width=True):
-            with st.status("Entraînement...") as s:
+    with r2_c2:
+        # FIX WARNING 2025: width="stretch"
+        if st.button("Entraînement", width="stretch"):
+            with st.status("Training...") as s:
                 succ, msg, acc = train_nba.train_model()
                 if succ:
                     run_script('src/features_nba.py', "Stats", s)
@@ -408,23 +572,25 @@ with tab3:
                     s.update(label=f"Succès ({acc:.1%})", state="complete")
                 else: s.error(msg)
 
-    with c2:
-        st.subheader("🔮 Ajout Manuel")
-        team_names = [f"{v['code']} - {v['full']}" for k,v in TEAMS_DB.items()]
-        hm = st.selectbox("Domicile", team_names, index=None)
-        aw = st.selectbox("Extérieur", team_names, index=None)
-        dt = st.date_input("Date du match", value=datetime.now())
-        if hm and aw:
-            if st.button("Analyser & Ajouter"):
-                h_code = hm.split(' - ')[0]
-                a_code = aw.split(' - ')[0]
-                h_id = next(k for k,v in TEAMS_DB.items() if v['code'] == h_code)
-                a_id = next(k for k,v in TEAMS_DB.items() if v['code'] == a_code)
-                prob, _ = get_prediction(model, df_stats, h_id, a_id)
-                if prob:
-                    win_name = TEAMS_DB[h_id]['full'] if prob > 0.5 else TEAMS_DB[a_id]['full']
-                    conf = prob*100 if prob > 0.5 else (1-prob)*100
-                    st.success(f"Vainqueur : {win_name} ({conf:.1f}%)")
-                    save_bet_auto(dt.strftime('%Y-%m-%d'), TEAMS_DB[h_id]['full'], TEAMS_DB[a_id]['full'], win_name, conf)
-                    st.session_state['schedule_data'] = {} # Force refresh
-                    st.rerun()
+    st.markdown("---")
+    st.subheader("🔮 Ajout Manuel")
+    cm1, cm2, cm3 = st.columns(3)
+    team_names = [f"{v['code']} - {v['full']}" for k,v in TEAMS_DB.items()]
+    hm = cm1.selectbox("Home", team_names, index=None)
+    aw = cm2.selectbox("Away", team_names, index=None)
+    dt = cm3.date_input("Date", value=datetime.now())
+    
+    if hm and aw:
+        if st.button("Analyser & Ajouter"):
+            h_code = hm.split(' - ')[0]
+            a_code = aw.split(' - ')[0]
+            h_id = next(k for k,v in TEAMS_DB.items() if v['code'] == h_code)
+            a_id = next(k for k,v in TEAMS_DB.items() if v['code'] == a_code)
+            prob, _ = get_prediction(model, df_stats, h_id, a_id)
+            if prob:
+                win_name = TEAMS_DB[h_id]['full'] if prob > 0.5 else TEAMS_DB[a_id]['full']
+                conf = prob*100 if prob > 0.5 else (1-prob)*100
+                st.success(f"Vainqueur : {win_name} ({conf:.1f}%)")
+                save_bet_auto(dt.strftime('%Y-%m-%d'), TEAMS_DB[h_id]['full'], TEAMS_DB[a_id]['full'], win_name, conf)
+                st.session_state['schedule_data'] = {} 
+                st.rerun()
