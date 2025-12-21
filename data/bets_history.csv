@@ -48,3 +48,11 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-21,Washington Wizards,San Antonio Spurs,San Antonio Spurs,58.9%,Auto,,,,
 2025-12-21,Minnesota Timberwolves,Milwaukee Bucks,Minnesota Timberwolves,57.1%,Auto,,,,
 2025-12-21,Sacramento Kings,Houston Rockets,Sacramento Kings,53.2%,Auto,,,,
+
+2025-12-22,Cleveland Cavaliers,Charlotte Hornets,Charlotte Hornets,51.2%,Auto,,
+2025-12-22,Boston Celtics,Indiana Pacers,Boston Celtics,68.2%,Auto,,
+2025-12-22,New Orleans Pelicans,Dallas Mavericks,New Orleans Pelicans,55.3%,Auto,,
+2025-12-22,Denver Nuggets,Utah Jazz,Denver Nuggets,71.4%,Auto,,
+2025-12-22,Oklahoma City Thunder,Memphis Grizzlies,Oklahoma City Thunder,66.0%,Auto,,
+2025-12-22,Golden State Warriors,Orlando Magic,Golden State Warriors,62.4%,Auto,,
+2025-12-22,Portland Trail Blazers,Detroit Pistons,Detroit Pistons,68.2%,Auto,,
