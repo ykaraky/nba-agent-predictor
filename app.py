@@ -13,22 +13,18 @@ from src import train_nba
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
 
-# --- CSS (DESIGN FINAL UNIFIÉ) ---
+# --- CSS (DESIGN V8.2 - UNIFIÉ) ---
 st.markdown("""
 <style>
-    /* 1. FOND GLOBAL (Override Streamlit Default) */
-    .stApp {
-        background-color: #262730 !important;
-    }
+    /* 1. FOND GLOBAL */
+    .stApp { background-color: #262730 !important; }
 
     /* 2. HEADER & NAV STICKY */
-    header[data-testid="stHeader"] {
-        background-color: #262730 !important; /* On match le fond */
-    }
+    header[data-testid="stHeader"] { background-color: #262730 !important; }
     div[data-testid="stTabs"] {
         position: sticky;
         top: 2.8rem;
-        background-color: #262730 !important; /* On match le fond */
+        background-color: #262730 !important;
         z-index: 999;
         padding-top: 10px;
         margin-top: 0px;
@@ -37,7 +33,7 @@ st.markdown("""
     
     /* 3. CARD VISUELLE */
     .unified-card {
-        background-color: #262730; /* Même couleur que le fond = effet plat */
+        background-color: #262730;
         border: 1px solid #444;
         border-radius: 12px;
         padding: 15px;
@@ -55,56 +51,43 @@ st.markdown("""
         margin-bottom: 12px;
     }
     
-    .team-box {
-        flex: 1;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-    
+    .team-box { flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; }
     .vs-text { font-weight: bold; color: #666; font-size: 0.8em; padding: 0 10px; }
-    
-    /* Typo Equipes */
     .t-code { font-weight: bold; font-size: 1.3em; margin-top: 5px; line-height: 1; color: #fff; }
     .t-meta { font-size: 0.75em; color: #bbb; margin-top: 4px; }
     
     /* 5. ZONE PRONOS */
-    .prono-section {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        align-items: center;
-        width: 100%;
+    .prono-section { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%; }
+    
+    .prono-row { 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 15px; 
+        font-size: 0.9em; 
+        width: 100%; 
     }
     
-    .prono-row {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 15px;
-        font-size: 0.9em;
-        width: 100%;
-    }
-    
+    /* Styles partagés IA et USER pour cohérence totale */
     .p-lbl { color: #888; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
-    .p-val { color: #fff; font-weight: 900; font-size: 1.3em; }
+    .p-val { color: #fff; font-weight: 900; font-size: 1.3em; } /* Blanc et Gras pour tout le monde */
     .p-conf { color: #00d4ff; font-size: 0.85em; font-weight: bold; }
     
+    /* Zone Utilisateur (Vote Validé) */
     .user-choice-row {
-        margin-top: 5px;
+        margin-top: 8px;
         padding-top: 8px;
-        border-top: 1px solid rgba(255,255,255,0.05);
+        border-top: 1px solid rgba(255,255,255,0.1);
         width: 100%;
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
+    .reason-text { font-size: 0.8em; color: #aaa; font-style: italic; margin-top: 4px; }
     
     /* 6. BOUTONS ACTIONS */
-    .action-container {
-        margin-top: 5px;
-        margin-bottom: 15px;
-        text-align: center;
-    }
+    .action-container { margin-top: 5px; margin-bottom: 15px; text-align: center; }
     
     .link-btn button {
         background: transparent !important;
@@ -118,11 +101,18 @@ st.markdown("""
     }
     .link-btn button:hover { color: #fff !important; }
 
+    /* Selectbox discret */
+    div[data-baseweb="select"] > div {
+        background-color: #1e2026 !important;
+        border-color: #444 !important;
+        font-size: 0.8em !important;
+    }
+
     /* 7. TABLEAU RESULTATS HTML */
     .res-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
     .res-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; }
     .res-table td { border-bottom: 1px solid #333; padding: 8px 5px; color: #ddd; }
-    .res-table tr:nth-child(even) { background-color: #2d2f38; } /* Légèrement plus clair que le fond */
+    .res-table tr:nth-child(even) { background-color: #2d2f38; }
     .res-table tr:nth-child(odd) { background-color: #262730; }
     
     /* 8. MOBILE */
@@ -137,6 +127,8 @@ st.markdown("""
 # --- 2. SESSIONS ---
 if 'schedule_data' not in st.session_state: st.session_state['schedule_data'] = {}
 if 'edit_modes' not in st.session_state: st.session_state['edit_modes'] = {}
+# Nouveau : Stockage local des votes pour feedback immédiat
+if 'local_votes' not in st.session_state: st.session_state['local_votes'] = {}
 
 DATA_DIR = "data"
 MODEL_DIR = "models"
@@ -145,6 +137,20 @@ APP_LOGO = "assets/app_logo.png"
 HISTORY_FILE = os.path.join(DATA_DIR, "bets_history.csv")
 GAMES_FILE = os.path.join(DATA_DIR, "nba_games_ready.csv")
 MODEL_FILE = os.path.join(MODEL_DIR, "nba_predictor.json")
+
+# Liste des arguments pour la v8
+REASONS_LIST = [
+    "Intuition / Feeling",
+    "Blessure / Effectif",
+    "Série / Forme du moment",
+    "Domicile / Extérieur",
+    "Analyse Stats",
+    "Revanche / Rivalité",
+    "Back-to-Back (Fatigue)",
+    "Cote / Value Bet",
+    "Suivi de l'IA",
+    "Contre l'IA"
+]
 
 # --- 3. FONCTIONS ---
 def get_teams_dict():
@@ -234,25 +240,33 @@ def get_prediction(model, df_history, h_id, a_id):
 
 def save_bet_auto(date, h_name, a_name, w_name, conf):
     if not os.path.exists(HISTORY_FILE): 
-        with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Prediction,User_Result\n")
+        with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Prediction,User_Result,User_Reason\n")
     try:
         df = pd.read_csv(HISTORY_FILE)
         if not df[(df['Date'] == date) & (df['Home'] == h_name) & (df['Away'] == a_name)].empty: return
     except: pass
     with open(HISTORY_FILE, 'a') as f:
-        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Auto,,,")
+        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Auto,,,,")
 
-def save_user_vote(date_str, h_name, a_name, user_choice):
+def save_user_vote(date_str, h_name, a_name, user_choice, reason, match_key):
     if not os.path.exists(HISTORY_FILE): return
     try:
         df = pd.read_csv(HISTORY_FILE)
+        # AUTO-MIGRATION
         if 'User_Prediction' not in df.columns: df['User_Prediction'] = None
+        if 'User_Reason' not in df.columns: df['User_Reason'] = None
+        
         mask = (df['Date'] == date_str) & (df['Home'] == h_name) & (df['Away'] == a_name)
         if df[mask].empty: return
         idx = df[mask].index[0]
         df.at[idx, 'User_Prediction'] = user_choice
+        df.at[idx, 'User_Reason'] = reason
         df.to_csv(HISTORY_FILE, index=False)
-        st.session_state['edit_modes'][f"{h_name} vs {a_name}"] = False
+        
+        # UI UPDATE IMMEDIATE
+        st.session_state['edit_modes'][match_key] = False
+        st.session_state['local_votes'][match_key] = {'choice': user_choice, 'reason': reason}
+        
     except: pass
 
 def get_last_mod(filepath):
@@ -342,14 +356,21 @@ with tab1:
 
                     existing_bet = pd.DataFrame()
                     user_bet_val = None
+                    user_reason_val = None
+                    
+                    # 1. Check CSV
                     if not hist_df.empty:
                         existing_bet = hist_df[(hist_df['Date'] == date_key) & (hist_df['Home'] == h_name) & (hist_df['Away'] == a_name)]
                     
                     if not existing_bet.empty:
                         saved_row = existing_bet.iloc[0]
                         winner = saved_row['Predicted_Winner']
+                        # Récupérer vote CSV
                         if 'User_Prediction' in saved_row and pd.notna(saved_row['User_Prediction']):
                             user_bet_val = saved_row['User_Prediction']
+                        if 'User_Reason' in saved_row and pd.notna(saved_row['User_Reason']):
+                            user_reason_val = saved_row['User_Reason']
+                            
                         try:
                             conf_str = str(saved_row['Confidence']).replace('%', '')
                             conf_val = float(conf_str)/100
@@ -365,8 +386,13 @@ with tab1:
                                 save_bet_auto(date_key, h_name, a_name, w, c)
                                 st.rerun()
                     
+                    # 2. Check Local Session (Prioritaire pour feedback immédiat)
+                    if mid in st.session_state['local_votes']:
+                        user_bet_val = st.session_state['local_votes'][mid]['choice']
+                        user_reason_val = st.session_state['local_votes'][mid]['reason']
+
                     if prob is not None and h_id != 0:
-                        matches_to_display.append({'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 'prob': prob, 'u': user_bet_val, 'mid': mid, 'd': date_key})
+                        matches_to_display.append({'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 'prob': prob, 'u': user_bet_val, 'reason': user_reason_val, 'mid': mid, 'd': date_key})
 
             # --- RENDER CARDS ---
             if matches_to_display:
@@ -384,10 +410,11 @@ with tab1:
                             ia_conf = m['prob']*100 if is_h_win else (1-m['prob'])*100
                             ia_code = TEAMS_DB.get(m['hid'] if is_h_win else m['aid'], {}).get('code', 'IA')
                             
-                            has_voted = (m['u'] is not None and m['u'] != "")
+                            # LOGIQUE ETAT VOTE
+                            has_voted = (m['u'] is not None and m['u'] != "" and str(m['u']) != "nan")
                             is_editing = st.session_state['edit_modes'].get(m['mid'], False)
                             
-                            # CARD HTML
+                            # CARD HTML STRUCTURE
                             html_teams = f"<div class='card-header'><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span><span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span></div><div class='vs-text'>VS</div><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span><span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span></div></div>"
                             
                             html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
@@ -395,7 +422,10 @@ with tab1:
                             html_user = ""
                             if has_voted and not is_editing:
                                 u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
-                                html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div></div>"
+                                # Raison en italique
+                                reason_disp = f"<div class='reason-text'>({m['reason']})</div>" if m['reason'] else ""
+                                # Meme style que IA (p-lbl et p-val)
+                                html_user = f"<div class='user-choice-row'><div class='prono-row'><span class='p-lbl'>MON CHOIX</span><span class='p-val'>{u_code}</span></div>{reason_disp}</div>"
                             
                             st.markdown(f"<div class='unified-card'>{html_teams}<div class='prono-section'>{html_ia}{html_user}</div></div>", unsafe_allow_html=True)
                             
@@ -408,15 +438,16 @@ with tab1:
                                     st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
                             else:
+                                # SELECTEUR + BOUTONS
+                                reason_choice = st.selectbox("Justification", REASONS_LIST, key=f"reason_{m['mid']}", label_visibility="collapsed")
                                 b1, b2 = st.columns(2)
                                 ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
                                 ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
-                                # FIX WARNING 2025: width="stretch"
                                 if b1.button(ch, key=f"bh_{m['mid']}", width="stretch"):
-                                    save_user_vote(m['d'], m['h'], m['a'], m['h'])
+                                    save_user_vote(m['d'], m['h'], m['a'], m['h'], reason_choice, m['mid'])
                                     st.rerun()
                                 if b2.button(ca, key=f"ba_{m['mid']}", width="stretch"):
-                                    save_user_vote(m['d'], m['h'], m['a'], m['a'])
+                                    save_user_vote(m['d'], m['h'], m['a'], m['a'], reason_choice, m['mid'])
                                     st.rerun()
                             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -498,16 +529,17 @@ with tab2:
             
             if 'User_Prediction' not in df_hist.columns: df_hist['User_Prediction'] = ""
             if 'User_Result' not in df_hist.columns: df_hist['User_Result'] = ""
+            if 'User_Reason' not in df_hist.columns: df_hist['User_Reason'] = ""
+            
             df_hist['Prono IK'] = df_hist.apply(lambda x: merge_prono_res(x['User_Prediction'], x['User_Result']), axis=1)
 
             df_hist['Trust'] = df_hist['Confidence']
 
-            cols_order = ['Date', 'Home', 'Away', 'Winner', 'Prono IK', 'Prono IA', 'Trust', 'Type']
+            cols_order = ['Date', 'Home', 'Away', 'Winner', 'Prono IK', 'User_Reason', 'Prono IA', 'Trust', 'Type']
             display_df = df_hist[cols_order].copy()
             display_df = display_df.sort_index(ascending=False)
             display_df.insert(len(display_df.columns), "Del", False)
             
-            # FIX WARNING 2025: width="stretch"
             edited = st.data_editor(
                 display_df,
                 column_config={
@@ -517,6 +549,7 @@ with tab2:
                     "Away": st.column_config.TextColumn("Away", width="small"),
                     "Winner": st.column_config.TextColumn("Winner", width="small"),
                     "Prono IK": st.column_config.TextColumn("Prono IK", width="small"),
+                    "User_Reason": st.column_config.TextColumn("Raison", width="medium"),
                     "Prono IA": st.column_config.TextColumn("Prono IA", width="small"),
                     "Trust": st.column_config.TextColumn("Trust", width="small"),
                     "Type": st.column_config.TextColumn("Type", width="small"),
@@ -551,7 +584,6 @@ with tab3:
     
     r2_c1, r2_c2 = st.columns(2)
     with r2_c1:
-        # FIX WARNING 2025: width="stretch"
         if st.button("Force Update", type="primary", width="stretch"):
             with st.status("Update...") as s:
                 run_script('src/data_nba.py', "Data", s)
@@ -562,7 +594,6 @@ with tab3:
                 s.update(label="Terminé", state="complete")
                 st.rerun()
     with r2_c2:
-        # FIX WARNING 2025: width="stretch"
         if st.button("Entraînement", width="stretch"):
             with st.status("Training...") as s:
                 succ, msg, acc = train_nba.train_model()
