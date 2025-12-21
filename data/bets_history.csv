@@ -45,13 +45,13 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-21,Atlanta Hawks,Chicago Bulls,Atlanta Hawks,59.6%,Auto,,,Atlanta Hawks,,Domicile / Extérieur
 2025-12-21,Brooklyn Nets,Toronto Raptors,Brooklyn Nets,76.0%,Auto,,,Toronto Raptors,,Série / Forme du moment
 2025-12-21,New York Knicks,Miami Heat,New York Knicks,81.0%,Auto,,,New York Knicks,,Série / Forme du moment
-2025-12-21,Washington Wizards,San Antonio Spurs,San Antonio Spurs,58.9%,Auto,,,San Antonio Spurs,,Intuition / Feeling
+2025-12-21,Washington Wizards,San Antonio Spurs,San Antonio Spurs,58.9%,Auto,,,San Antonio Spurs,,Série / Forme du moment
 2025-12-21,Minnesota Timberwolves,Milwaukee Bucks,Minnesota Timberwolves,57.1%,Auto,,,Minnesota Timberwolves,,Série / Forme du moment
 2025-12-21,Sacramento Kings,Houston Rockets,Sacramento Kings,53.2%,Auto,,,Houston Rockets,,Série / Forme du moment
-2025-12-22,Cleveland Cavaliers,Charlotte Hornets,Charlotte Hornets,51.2%,Auto,,,Cleveland Cavaliers,,
-2025-12-22,Boston Celtics,Indiana Pacers,Boston Celtics,68.2%,Auto,,,Boston Celtics,,
-2025-12-22,New Orleans Pelicans,Dallas Mavericks,New Orleans Pelicans,55.3%,Auto,,,Dallas Mavericks,,
-2025-12-22,Denver Nuggets,Utah Jazz,Denver Nuggets,71.4%,Auto,,,Denver Nuggets,,
-2025-12-22,Oklahoma City Thunder,Memphis Grizzlies,Oklahoma City Thunder,66.0%,Auto,,,Oklahoma City Thunder,,
-2025-12-22,Golden State Warriors,Orlando Magic,Golden State Warriors,62.4%,Auto,,,Golden State Warriors,,
-2025-12-22,Portland Trail Blazers,Detroit Pistons,Detroit Pistons,68.2%,Auto,,,Detroit Pistons,,
+2025-12-22,Cleveland Cavaliers,Charlotte Hornets,Charlotte Hornets,51.2%,Auto,,,Cleveland Cavaliers,,Domicile / Extérieur
+2025-12-22,Boston Celtics,Indiana Pacers,Boston Celtics,68.2%,Auto,,,Boston Celtics,,Série / Forme du moment
+2025-12-22,New Orleans Pelicans,Dallas Mavericks,New Orleans Pelicans,55.3%,Auto,,,Dallas Mavericks,,Revanche / Rivalité
+2025-12-22,Denver Nuggets,Utah Jazz,Denver Nuggets,71.4%,Auto,,,Denver Nuggets,,Analyse Stats
+2025-12-22,Oklahoma City Thunder,Memphis Grizzlies,Oklahoma City Thunder,66.0%,Auto,,,Oklahoma City Thunder,,Analyse Stats
+2025-12-22,Golden State Warriors,Orlando Magic,Golden State Warriors,62.4%,Auto,,,Golden State Warriors,,Intuition / Feeling
+2025-12-22,Portland Trail Blazers,Detroit Pistons,Detroit Pistons,68.2%,Auto,,,Detroit Pistons,,Intuition / Feeling
