@@ -36,9 +36,9 @@ def run_git_sync():
     except Exception as e:
         print(f"⚠️ Erreur Git : {e}")
 
-# --- DÉMARRAGE v5 ---
+# --- DÉMARRAGE NBA Agent ---
 
-print("\n🏀 --- NBA AGENT v5 : ROUTINE --- 🏀\n")
+print("\n🏀 --- NBA AGENT: ROUTINE --- 🏀\n")
 
 # Note les chemins : src/nom_du_fichier.py
 if not run_step('src/data_nba.py', "Mise à jour des Scores"):
@@ -51,6 +51,6 @@ run_step('src/verify_bets.py', "Vérification Paris")
 # Envoi Cloud
 run_git_sync()
 
-print("\n✨ Lancement de l'interface v5...")
+print("\n✨ Lancement de l'interface NBA Agent...")
 time.sleep(2)
 subprocess.run([sys.executable, "-m", "streamlit", "run", "app.py"])
