@@ -1,91 +1,70 @@
 import sys
 from datetime import datetime, timedelta
-from nba_api.stats.endpoints import scoreboardv2
+from nba_api.stats.endpoints import leaguegamefinder
 import pandas as pd
 
 def check_nba_status():
     # 1. Date cible : Hier
     yesterday = datetime.now() - timedelta(days=1)
-    date_str = yesterday.strftime('%Y-%m-%d')
+    date_str = yesterday.strftime('%m/%d/%Y') # Format requis par GameFinder (MM/DD/YYYY)
     date_disp = yesterday.strftime('%d.%m.%Y')
     
-    print(f"--- DIAGNOSTIC NBA API ({date_disp}) ---")
-    print("Connexion API en cours...")
+    print(f"--- CONTROLE ROBUSTE DU {date_disp} ---")
+    print("Connexion API (LeagueGameFinder)...")
 
     try:
-        # 2. Interrogation Scoreboard
-        board = scoreboardv2.ScoreboardV2(game_date=date_str)
-        games = board.game_header.get_data_frame()
-        line_scores = board.line_score.get_data_frame()
+        # 2. Recherche des matchs joués à cette date précise
+        # C'est la même méthode que ton script de mise à jour, donc 100% aligné.
+        gamefinder = leaguegamefinder.LeagueGameFinder(
+            date_from_nullable=date_str,
+            date_to_nullable=date_str,
+            league_id_nullable='00' # 00 = NBA
+        )
+        games = gamefinder.get_data_frames()[0]
 
         if games.empty:
-            print(f"[INFO] Aucun match trouve pour la date du {date_disp}.")
-            print(">> Tu peux lancer la mise a jour (rien ne changera).")
+            print(f"[INFO] Aucun match trouvé pour le {date_disp}.")
+            print(">> FEU VERT (Rien à faire).")
             return
 
-        total_games = len(games)
-        ready_count = 0
+        # On a souvent 2 lignes par match (Home et Away), on dédoublonne par GAME_ID
+        unique_games = games.drop_duplicates(subset=['GAME_ID'])
+        total_games = len(unique_games)
+        finished_games = 0
         
-        print(f"\n{total_games} matchs trouves hier :")
+        print(f"\n{total_games} matchs détectés :")
         print("-" * 40)
 
-        # 3. Analyse détaillée match par match
-        for i, game in games.iterrows():
-            game_id = game['GAME_ID']
-            status_id = game['GAME_STATUS_ID'] # 3 = Final
-            status_text = str(game['GAME_STATUS_TEXT']).strip()
+        for _, game in unique_games.iterrows():
+            match_str = game['MATCHUP']
+            pts = game['PTS']
+            wl = game['WL'] # W ou L (indique que le match est fini)
             
-            # On recupere les codes equipes
-            home_id = game['HOME_TEAM_ID']
-            away_id = game['VISITOR_TEAM_ID']
+            # Si on a des points ET un résultat (W/L), c'est fini
+            is_finished = (pts > 0) and (wl in ['W', 'L'])
             
-            # Recup scores (si dispo)
-            pts_home = 0
-            pts_away = 0
+            status_icon = "[OK]" if is_finished else "[ATTENTE]"
+            status_txt = f"{int(pts)} pts ({wl})" if is_finished else "En cours..."
             
-            if not line_scores.empty:
-                ls_home = line_scores[line_scores['TEAM_ID'] == home_id]
-                ls_away = line_scores[line_scores['TEAM_ID'] == away_id]
-                # On cherche la ligne correspondant a ce game_id
-                ls_home = ls_home[ls_home['GAME_ID'] == game_id]
-                ls_away = ls_away[ls_away['GAME_ID'] == game_id]
-                
-                if not ls_home.empty and 'PTS' in ls_home.columns:
-                    pts_home = ls_home.iloc[0]['PTS']
-                if not ls_away.empty and 'PTS' in ls_away.columns:
-                    pts_away = ls_away.iloc[0]['PTS']
-
-            # LOGIQUE DE VALIDATION SOUPLE
-            # Est considere pret si : Statut est Final OU (Scores > 0 et Statut contient Final)
-            is_final_status = (status_id == 3)
-            has_scores = (pd.notna(pts_home) and int(pts_home) > 0 and pd.notna(pts_away) and int(pts_away) > 0)
+            print(f"{status_icon} {match_str} : {status_txt}")
             
-            is_ready = is_final_status or has_scores
-            
-            # Affichage ligne
-            match_label = f"Match {i+1}"
-            score_display = f"{int(pts_away)} - {int(pts_home)}" if has_scores else "? - ?"
-            state_display = "[OK]" if is_ready else "[EN COURS]"
-            
-            print(f"{state_display} {match_label} : {score_display} ({status_text})")
-            
-            if is_ready:
-                ready_count += 1
+            if is_finished:
+                finished_games += 1
 
         print("-" * 40)
-        print(f"BILAN : {ready_count} / {total_games} matchs prets.")
 
         # 4. Verdict
-        if ready_count == total_games and total_games > 0:
-            print("\n>>> FEU VERT : GO_NBA.bat AUTORISE <<<")
-        elif ready_count == 0:
-            print("\n>>> FEU ROUGE : RIEN N'EST PRET <<<")
+        if finished_games >= total_games and total_games > 0:
+            print("\n>>> FEU VERT : TOUT EST PRET <<<")
+            print("Tu peux lancer GO_NBA.bat")
+        elif finished_games == 0:
+            print("\n>>> FEU ROUGE : AUCUN RÉSULTAT <<<")
         else:
-            print(f"\n>>> FEU ORANGE : Manque {total_games - ready_count} resultats <<<")
-            print("Si les scores affiches ci-dessus semblent complets, tu peux tenter.")
+            print(f"\n>>> FEU ORANGE : {finished_games}/{total_games} terminés <<<")
+            print("Certains scores manquent encore.")
 
     except Exception as e:
-        print(f"[ERREUR] Probleme technique API : {e}")
+        print(f"[ERREUR] API inaccessible : {e}")
 
 if __name__ == "__main__":
     check_nba_status()
