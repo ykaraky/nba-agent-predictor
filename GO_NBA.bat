@@ -13,7 +13,10 @@ cd /d "%~dp0"
 :: 2. Lancer la routine python (qui fait Data + Calculs + Git + Streamlit)
 python daily_routine.py
 
-:: 3. Si ça plante, on ne ferme pas la fenêtre tout de suite
+:: 3. Synchroniser vers le Cloud (Supabase)
+python src/sync_cloud.py
+
+:: 4. Si ça plante, on ne ferme pas la fenêtre tout de suite
 if %errorlevel% neq 0 (
     color 0C
     echo.
@@ -21,6 +24,6 @@ if %errorlevel% neq 0 (
     pause
 ) else (
     echo.
-    echo [INFO] Interface fermee.
+    echo [INFO] Tout est a jour (Local + Cloud).
     pause
 )

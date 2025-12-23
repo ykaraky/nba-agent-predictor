@@ -1,0 +1,21 @@
+Build a "NBA Betting Dashboard" using React and Tailwind CSS.
+
+1. Connect to my Supabase database using the 'supabase-js' client.
+   - URL: [https://meqvmpqyizffzlvomqbb.supabase.co]
+   - Key: [sb_publishable_bSPoeHBKUrxsEwn0ZI5cdA_iAAK3wza]
+
+2. Fetch data from the 'bets_history' table.
+
+3. Create a layout with a dark theme (background #111).
+
+4. Display the data as a Grid of Cards.
+   - Each card represents a match (Home vs Away).
+   - Show the Winner, the AI Prediction, and the User Prediction.
+   - Use a Green badge if the User won, Red if lost.
+
+5. Add a stats summary at the top: Count total wins for AI vs User.
+
+# --- CONFIG ---
+SUPABASE_URL = "https://meqvmpqyizffzlvomqbb.supabase.co"
+SUPABASE_KEY = "sb_publishable_bSPoeHBKUrxsEwn0ZI5cdA_iAAK3wza"
+CSV_PATH = "data/bets_history.csv"
