@@ -275,8 +275,18 @@ def get_last_mod(filepath):
 
 def scan_schedule(days_to_check=7):
     found_days = {}
-    check_date = datetime.now()
+    
+    # LOGIQUE "JOURNEE NBA" :
+    # Si il est avant 11h du matin (heure locale), on inclut la veille.
+    # Car les matchs de la nuit sont techniquement "hier" pour le calendrier, mais "aujourd'hui" pour nous.
+    now = datetime.now()
+    if now.hour < 11:
+        check_date = now - timedelta(days=1)
+    else:
+        check_date = now
+        
     count_found = 0
+    
     for _ in range(days_to_check):
         str_date = check_date.strftime('%Y-%m-%d')
         day_games_list = []
@@ -286,17 +296,21 @@ def scan_schedule(days_to_check=7):
             clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             if not clean.empty: day_games_list.append(clean)
         except: pass
+        
         if os.path.exists(HISTORY_FILE):
             try:
                 hist = pd.read_csv(HISTORY_FILE)
                 manual_today = hist[(hist['Date'] == str_date)]
                 if not manual_today.empty: day_games_list.append(manual_today)
             except: pass
+            
         if day_games_list:
             found_days[str_date] = day_games_list
             count_found += 1
-        if count_found >= 2: break
+            
+        if count_found >= 2: break # On garde 2 jours d'affichage
         check_date += timedelta(days=1)
+        
     return found_days
 
 # --- INIT ---
