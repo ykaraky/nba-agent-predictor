@@ -74,12 +74,12 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-25,Golden State Warriors,Dallas Mavericks,Golden State Warriors,56.6%,Auto,,,Golden State Warriors,,Série / Forme du moment
 2025-12-25,Los Angeles Lakers,Houston Rockets,Los Angeles Lakers,72.8%,Auto,,,Houston Rockets,,Intuition / Feeling
 2025-12-25,Denver Nuggets,Minnesota Timberwolves,Denver Nuggets,67.0%,Auto,,,Denver Nuggets,,Analyse Stats
-2025-12-26,Atlanta Hawks,Miami Heat,Atlanta Hawks,57.5%,Auto,,,,,
-2025-12-26,Orlando Magic,Charlotte Hornets,Orlando Magic,53.4%,Auto,,,,,
-2025-12-26,Washington Wizards,Toronto Raptors,Washington Wizards,57.2%,Auto,,,,,
-2025-12-26,Indiana Pacers,Boston Celtics,Boston Celtics,61.7%,Auto,,,,,
-2025-12-26,Chicago Bulls,Philadelphia 76ers,Philadelphia 76ers,53.7%,Auto,,,,,
-2025-12-26,Memphis Grizzlies,Milwaukee Bucks,Memphis Grizzlies,62.9%,Auto,,,,,
-2025-12-26,New Orleans Pelicans,Phoenix Suns,New Orleans Pelicans,87.3%,Auto,,,,,
-2025-12-26,Utah Jazz,Detroit Pistons,Utah Jazz,65.2%,Auto,,,,,
-2025-12-26,Portland Trail Blazers,Los Angeles Clippers,Portland Trail Blazers,65.3%,Auto,,,,,
+2025-12-26,Atlanta Hawks,Miami Heat,Atlanta Hawks,57.5%,Auto,,,Atlanta Hawks,,Domicile / Extérieur
+2025-12-26,Orlando Magic,Charlotte Hornets,Orlando Magic,53.4%,Auto,,,Orlando Magic,,Analyse Stats
+2025-12-26,Washington Wizards,Toronto Raptors,Washington Wizards,57.2%,Auto,,,Toronto Raptors,,Analyse Stats
+2025-12-26,Indiana Pacers,Boston Celtics,Boston Celtics,61.7%,Auto,,,Boston Celtics,,Série / Forme du moment
+2025-12-26,Chicago Bulls,Philadelphia 76ers,Philadelphia 76ers,53.7%,Auto,,,Chicago Bulls,,Série / Forme du moment
+2025-12-26,Memphis Grizzlies,Milwaukee Bucks,Memphis Grizzlies,62.9%,Auto,,,Memphis Grizzlies,,Domicile / Extérieur
+2025-12-26,New Orleans Pelicans,Phoenix Suns,New Orleans Pelicans,87.3%,Auto,,,Phoenix Suns,,Analyse Stats
+2025-12-26,Utah Jazz,Detroit Pistons,Utah Jazz,65.2%,Auto,,,Detroit Pistons,,Analyse Stats
+2025-12-26,Portland Trail Blazers,Los Angeles Clippers,Portland Trail Blazers,65.3%,Auto,,,Portland Trail Blazers,,Série / Forme du moment
