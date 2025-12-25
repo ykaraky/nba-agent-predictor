@@ -43,17 +43,11 @@ st.markdown("""
     }
     
     /* 4. STATS CARDS */
-    .stat-box {
-        text-align: center;
-        padding: 10px;
-        border-right: 1px solid rgba(255,255,255,0.1);
-    }
+    .stat-box { text-align: center; padding: 10px; border-right: 1px solid rgba(255,255,255,0.1); }
     .stat-box:last-child { border-right: none; }
-    
     .stat-label { font-size: 0.8em; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
     .stat-val { font-size: 2em; font-weight: 900; color: #fff; line-height: 1.1; }
     .stat-sub { font-size: 0.8em; font-weight: bold; }
-    
     .color-ai { color: #00d4ff !important; }
     .color-ik { color: #4ade80 !important; }
     .color-bad { color: #f87171 !important; }
@@ -65,12 +59,22 @@ st.markdown("""
     .t-code { font-weight: bold; font-size: 1.3em; margin-top: 5px; line-height: 1; color: #fff; }
     .t-meta { font-size: 0.75em; color: #bbb; margin-top: 4px; }
     
+    /* SCORES LIVE */
+    .score-val { font-size: 1.8em; font-weight: 900; color: #fff; }
+    .score-win { color: #4ade80; }
+    .score-loss { color: #aaa; opacity: 0.6; }
+    .status-final { font-size: 0.7em; color: #f87171; font-weight: bold; letter-spacing: 1px; border: 1px solid #f87171; padding: 2px 6px; border-radius: 4px; }
+
+    /* PRONOS & RESULTATS */
     .prono-section { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%; }
     .prono-row { display: flex; align-items: center; justify-content: center; gap: 15px; font-size: 0.9em; width: 100%; }
     .p-lbl { color: #888; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
     .p-val { color: #fff; font-weight: 900; font-size: 1.3em; }
     .p-conf { color: #00d4ff; font-size: 0.85em; font-weight: bold; }
     
+    .res-badge-win { background-color: rgba(74, 222, 128, 0.2); color: #4ade80; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; border: 1px solid #4ade80; }
+    .res-badge-loss { background-color: rgba(248, 113, 113, 0.2); color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; border: 1px solid #f87171; }
+
     .user-choice-row { margin-top: 5px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; text-align: center; }
     .reason-text { font-size: 0.8em; color: #aaa; font-style: italic; margin-top: 2px; }
     
@@ -228,42 +232,107 @@ def get_last_mod(filepath):
     if os.path.exists(filepath): return datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%d/%m %H:%M')
     return "N/A"
 
+# --- SCANNER V9.15 (PANDAS MERGE ROBUSTE) ---
 def scan_schedule(days_to_check=7):
     found_days = {}
-    
-    # LOGIQUE "JOURNEE NBA" :
-    # Si il est avant 11h du matin (heure locale), on inclut la veille.
-    # Car les matchs de la nuit sont techniquement "hier" pour le calendrier, mais "aujourd'hui" pour nous.
-    now = datetime.now()
-    if now.hour < 11:
-        check_date = now - timedelta(days=1)
-    else:
-        check_date = now
-        
+    check_date = datetime.now() - timedelta(days=2) # Force 2 jours avant
     count_found = 0
+    
+    # 1. Chargement Historique pour Cross-Check
+    hist_data = pd.DataFrame()
+    if os.path.exists(HISTORY_FILE):
+        try: hist_data = pd.read_csv(HISTORY_FILE)
+        except: pass
     
     for _ in range(days_to_check):
         str_date = check_date.strftime('%Y-%m-%d')
         day_games_list = []
+        
         try:
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
             raw = board.game_header.get_data_frame()
-            clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
-            if not clean.empty: day_games_list.append(clean)
-        except: pass
-        
-        if os.path.exists(HISTORY_FILE):
-            try:
-                hist = pd.read_csv(HISTORY_FILE)
-                manual_today = hist[(hist['Date'] == str_date)]
-                if not manual_today.empty: day_games_list.append(manual_today)
-            except: pass
+            scores = board.line_score.get_data_frame()
+            
+            # --- NETTOYAGE & COPIE PROPRE ---
+            clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID']).copy()
+            
+            if not clean.empty:
+                print(f"[DEBUG] Date: {str_date} - Matchs trouvés: {len(clean)}")
+                
+                # --- PANDAS MERGE LOGIC ---
+                if not scores.empty:
+                    # Conversion en INT pour être sûr
+                    clean['G_ID'] = clean['GAME_ID'].astype(str).astype(float).astype(int)
+                    clean['H_ID'] = clean['HOME_TEAM_ID'].astype(str).astype(float).astype(int)
+                    clean['A_ID'] = clean['VISITOR_TEAM_ID'].astype(str).astype(float).astype(int)
+                    
+                    scores_copy = scores.copy()
+                    scores_copy['G_ID'] = scores_copy['GAME_ID'].astype(str).astype(float).astype(int)
+                    scores_copy['T_ID'] = scores_copy['TEAM_ID'].astype(str).astype(float).astype(int)
+                    
+                    # Merge Home
+                    clean = pd.merge(
+                        clean, 
+                        scores_copy[['G_ID', 'T_ID', 'PTS']], 
+                        left_on=['G_ID', 'H_ID'], 
+                        right_on=['G_ID', 'T_ID'], 
+                        how='left'
+                    ).rename(columns={'PTS': 'PTS_HOME'})
+                    
+                    # Merge Away
+                    clean = pd.merge(
+                        clean, 
+                        scores_copy[['G_ID', 'T_ID', 'PTS']], 
+                        left_on=['G_ID', 'A_ID'], 
+                        right_on=['G_ID', 'T_ID'], 
+                        how='left',
+                        suffixes=('', '_away')
+                    ).rename(columns={'PTS': 'PTS_AWAY'})
+                    
+                else:
+                    clean['PTS_HOME'] = None
+                    clean['PTS_AWAY'] = None
+                
+                # FORCE STATUS FINI SI HISTORIQUE LE DIT
+                if not hist_data.empty:
+                    def check_history_status(row):
+                        if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']):
+                            return 3
+                        try:
+                            h_id = int(float(row['HOME_TEAM_ID']))
+                            if h_id in TEAMS_DB:
+                                h_name = TEAMS_DB[h_id]['full']
+                                match_hist = hist_data[
+                                    (hist_data['Date'] == str_date) & 
+                                    (hist_data['Home'] == h_name) & 
+                                    (hist_data['Result'].isin(['GAGNE', 'PERDU']))
+                                ]
+                                if not match_hist.empty: return 3
+                        except: pass
+                        return row.get('GAME_STATUS_ID', 1)
+
+                    clean['GAME_STATUS_ID'] = clean.apply(check_history_status, axis=1)
+
+                day_games_list.append(clean)
+        except Exception as e:
+            print(f"[ERR API] {e}")
+
+        # B. MANUEL
+        if not hist_data.empty:
+            manual_today = hist_data[(hist_data['Date'] == str_date)].copy()
+            if not manual_today.empty and not day_games_list: 
+                manual_today['GAME_STATUS_ID'] = 3
+                manual_today['PTS_HOME'] = 0
+                manual_today['PTS_AWAY'] = 0
+                mask_unfinished = manual_today['Result'].isna() | (manual_today['Result'] == "")
+                manual_today.loc[mask_unfinished, 'GAME_STATUS_ID'] = 1
+                day_games_list.append(manual_today)
             
         if day_games_list:
             found_days[str_date] = day_games_list
             count_found += 1
             
-        if count_found >= 2: break # On garde 2 jours d'affichage
+        if count_found >= 2: break 
         check_date += timedelta(days=1)
         
     return found_days
@@ -310,6 +379,11 @@ with tab1:
                     h_id, a_id = 0, 0
                     h_name, a_name = "", ""
                     prob = None
+                    
+                    status_id = row.get('GAME_STATUS_ID', 1) 
+                    pts_h = row.get('PTS_HOME', None)
+                    pts_a = row.get('PTS_AWAY', None)
+                    
                     if 'HOME_TEAM_ID' in row: 
                         h_id, a_id = row['HOME_TEAM_ID'], row['VISITOR_TEAM_ID']
                         if h_id in TEAMS_DB: h_name = TEAMS_DB[h_id]['full']
@@ -326,6 +400,7 @@ with tab1:
                     existing_bet = pd.DataFrame()
                     user_bet_val = None
                     user_reason_val = None
+                    real_winner_hist = None
                     
                     if not hist_df.empty:
                         existing_bet = hist_df[(hist_df['Date'] == date_key) & (hist_df['Home'] == h_name) & (hist_df['Away'] == a_name)]
@@ -333,6 +408,8 @@ with tab1:
                     if not existing_bet.empty:
                         saved_row = existing_bet.iloc[0]
                         winner = saved_row['Predicted_Winner']
+                        real_winner_hist = saved_row.get('Real_Winner', None)
+                        
                         if 'User_Prediction' in saved_row and pd.notna(saved_row['User_Prediction']):
                             user_bet_val = saved_row['User_Prediction']
                         if 'User_Reason' in saved_row and pd.notna(saved_row['User_Reason']):
@@ -353,14 +430,30 @@ with tab1:
                                 st.rerun()
                     
                     if prob is not None and h_id != 0:
-                        matches_to_display.append({'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 'prob': prob, 'u': user_bet_val, 'reason': user_reason_val, 'mid': mid, 'd': date_key})
+                        matches_to_display.append({
+                            'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 
+                            'prob': prob, 'u': user_bet_val, 'reason': user_reason_val, 'mid': mid, 'd': date_key,
+                            'status': status_id, 'pts_h': pts_h, 'pts_a': pts_a,
+                            'real_winner': real_winner_hist 
+                        })
 
-            # RENDER CARDS
+            # --- RENDER CARDS ---
             if matches_to_display:
                 cols = st.columns(2)
                 for i, m in enumerate(matches_to_display):
                     with cols[i % 2]:
                         with st.container():
+                            # LOGIQUE ETAT
+                            try:
+                                score_h = int(float(m['pts_h'])) if pd.notna(m['pts_h']) else 0
+                                score_a = int(float(m['pts_a'])) if pd.notna(m['pts_a']) else 0
+                            except: score_h, score_a = 0, 0
+                            
+                            has_scores = (score_h > 0 and score_a > 0)
+                            has_winner_hist = (m['real_winner'] is not None and str(m['real_winner']) not in ['nan', 'None', '', 'En attente...'])
+                            
+                            is_finished = (m['status'] == 3) or has_scores or has_winner_hist
+                            
                             inf_h = STANDINGS_DB.get(m['hid'], {'rec': '', 'strk': '', 'rank': ''})
                             inf_a = STANDINGS_DB.get(m['aid'], {'rec': '', 'strk': '', 'rank': ''})
                             c_sh = "#4ade80" if 'W' in inf_h['strk'] else "#f87171"
@@ -372,36 +465,109 @@ with tab1:
                             has_voted = (m['u'] is not None and m['u'] != "")
                             is_editing = st.session_state['edit_modes'].get(m['mid'], False)
                             
-                            html_teams = f"<div class='card-header'><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span><span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span></div><div class='vs-text'>VS</div><div class='team-box'><img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'><span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span><span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span></div></div>"
-                            html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
+                            # HEADER
+                            score_vs_block = "<div class='vs-text'>VS</div>"
                             
-                            html_user = ""
-                            if has_voted and not is_editing:
-                                u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
-                                reason_disp = f"<div class='reason-text'>({m['reason']})</div>" if m['reason'] else ""
-                                html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div>{reason_disp}</div>"
+                            if is_finished:
+                                score_vs_block = f"<div class='status-final'>FINAL</div>"
+                                h_cls, a_cls = "", ""
+                                if has_scores:
+                                    h_cls = "score-win" if score_h > score_a else "score-loss"
+                                    a_cls = "score-win" if score_a > score_h else "score-loss"
+                                else:
+                                    score_h, score_a = "?", "?"
+                                    
+                                html_teams = f"""
+                                <div class='card-header'>
+                                    <div class='team-box'>
+                                        <img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'>
+                                        <span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span>
+                                        <span class='score-val {h_cls}'>{score_h}</span>
+                                    </div>
+                                    {score_vs_block}
+                                    <div class='team-box'>
+                                        <img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'>
+                                        <span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span>
+                                        <span class='score-val {a_cls}'>{score_a}</span>
+                                    </div>
+                                </div>
+                                """
+                            else:
+                                html_teams = f"""
+                                <div class='card-header'>
+                                    <div class='team-box'>
+                                        <img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'>
+                                        <span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span>
+                                        <span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span>
+                                    </div>
+                                    {score_vs_block}
+                                    <div class='team-box'>
+                                        <img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'>
+                                        <span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span>
+                                        <span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span>
+                                    </div>
+                                </div>
+                                """
+                            
+                            # PRONO
+                            if is_finished:
+                                real_winner_name = None
+                                if has_scores:
+                                    real_winner_name = m['h'] if score_h > score_a else m['a']
+                                elif has_winner_hist:
+                                    real_winner_name = m['real_winner']
+                                
+                                if real_winner_name:
+                                    ia_pred_name = m['h'] if is_h_win else m['a']
+                                    ia_res = "res-badge-win" if ia_pred_name == real_winner_name else "res-badge-loss"
+                                    ia_txt = "GAGNÉ" if ia_pred_name == real_winner_name else "PERDU"
+                                    
+                                    html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='{ia_res}'>{ia_txt}</span></div>"
+                                    
+                                    html_user = ""
+                                    if has_voted:
+                                        u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
+                                        u_win = (m['u'] == real_winner_name)
+                                        u_res = "res-badge-win" if u_win else "res-badge-loss"
+                                        u_txt = "GAGNÉ" if u_win else "PERDU"
+                                        html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span><span class='{u_res}'>{u_txt}</span></div></div>"
+                                    else:
+                                        html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span style='color:#666;'>-</span></div></div>"
+                                else:
+                                    html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span></div>"
+                                    html_user = ""
+
+                            else:
+                                html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
+                                html_user = ""
+                                if has_voted and not is_editing:
+                                    u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
+                                    reason_disp = f"<div class='reason-text'>({m['reason']})</div>" if m['reason'] else ""
+                                    html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div>{reason_disp}</div>"
                             
                             st.markdown(f"<div class='unified-card'>{html_teams}<div class='prono-section'>{html_ia}{html_user}</div></div>", unsafe_allow_html=True)
                             
-                            st.markdown('<div class="action-container">', unsafe_allow_html=True)
-                            if has_voted and not is_editing:
-                                st.markdown('<div class="link-btn">', unsafe_allow_html=True)
-                                if st.button("Modifier", key=f"btn_mod_{m['mid']}"):
-                                    st.session_state['edit_modes'][m['mid']] = True
-                                    st.rerun()
+                            # ACTIONS
+                            if not is_finished:
+                                st.markdown('<div class="action-container">', unsafe_allow_html=True)
+                                if has_voted and not is_editing:
+                                    st.markdown('<div class="link-btn">', unsafe_allow_html=True)
+                                    if st.button("Modifier", key=f"btn_mod_{m['mid']}", use_container_width=True):
+                                        st.session_state['edit_modes'][m['mid']] = True
+                                        st.rerun()
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                else:
+                                    reason_choice = st.selectbox("Justification", REASONS_LIST, key=f"reason_{m['mid']}", label_visibility="collapsed")
+                                    b1, b2 = st.columns(2)
+                                    ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
+                                    ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
+                                    if b1.button(ch, key=f"bh_{m['mid']}", use_container_width=True):
+                                        save_user_vote(m['d'], m['h'], m['a'], m['h'], reason_choice, m['mid'])
+                                        st.rerun()
+                                    if b2.button(ca, key=f"ba_{m['mid']}", use_container_width=True):
+                                        save_user_vote(m['d'], m['h'], m['a'], m['a'], reason_choice, m['mid'])
+                                        st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
-                            else:
-                                reason_choice = st.selectbox("Justification", REASONS_LIST, key=f"reason_{m['mid']}", label_visibility="collapsed")
-                                b1, b2 = st.columns(2)
-                                ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
-                                ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
-                                if b1.button(ch, key=f"bh_{m['mid']}", width="stretch"):
-                                    save_user_vote(m['d'], m['h'], m['a'], m['h'], reason_choice, m['mid'])
-                                    st.rerun()
-                                if b2.button(ca, key=f"ba_{m['mid']}", width="stretch"):
-                                    save_user_vote(m['d'], m['h'], m['a'], m['a'], reason_choice, m['mid'])
-                                    st.rerun()
-                            st.markdown('</div>', unsafe_allow_html=True)
 
     elif st.session_state['schedule_data'] == {}:
         st.info("Aucun match.")
@@ -446,55 +612,54 @@ with tab1:
                         st.markdown(html_table, unsafe_allow_html=True)
 
 # ==============================================================================
-# TAB 2 : STATS
+# TAB 2 : STATS (V9.3 COMPACT)
 # ==============================================================================
 with tab2:
-    if os.path.exists(HISTORY_FILE):
-        df = pd.read_csv(HISTORY_FILE)
-        finished_df = df[df['Result'].isin(['GAGNE', 'PERDU'])].copy()
-        
-        # 1. KPIs
-        if not finished_df.empty:
-            ia_win_count = len(finished_df[finished_df['Result'] == 'GAGNE'])
-            ia_total = len(finished_df)
-            ia_acc = (ia_win_count / ia_total) * 100
+    _, c_tab_center, _ = st.columns([1, 10, 1])
+    
+    with c_tab_center:
+        if os.path.exists(HISTORY_FILE):
+            df = pd.read_csv(HISTORY_FILE)
+            finished_df = df[df['Result'].isin(['GAGNE', 'PERDU'])].copy()
             
-            user_played = finished_df[finished_df['User_Result'].isin(['GAGNE', 'PERDU'])]
-            user_win_count = len(user_played[user_played['User_Result'] == 'GAGNE'])
-            user_total = len(user_played)
-            user_acc = (user_win_count / user_total * 100) if user_total > 0 else 0
-            
-            c_kpi1, c_kpi2, c_kpi3 = st.columns(3)
-            with c_kpi1:
-                st.markdown(f"<div class='unified-card stat-box'><div class='stat-label'>IA SUCCESS</div><div class='stat-val color-ai'>{ia_acc:.1f}%</div><div class='stat-sub'>({ia_win_count}/{ia_total})</div></div>", unsafe_allow_html=True)
-            with c_kpi2:
-                col_u = "color-ik" if user_acc >= ia_acc else "color-bad"
-                st.markdown(f"<div class='unified-card stat-box'><div class='stat-label'>IK SUCCESS</div><div class='stat-val {col_u}'>{user_acc:.1f}%</div><div class='stat-sub'>({user_win_count}/{user_total})</div></div>", unsafe_allow_html=True)
-            
-            # 2. CHART
-            if 'User_Reason' in user_played.columns and not user_played.empty:
-                stats_reason = user_played.groupby('User_Reason')['User_Result'].apply(lambda x: (x == 'GAGNE').mean()).reset_index()
-                stats_reason.columns = ['Raison', 'Taux']
-                stats_reason['Count'] = user_played.groupby('User_Reason')['User_Result'].count().values
-                stats_reason = stats_reason[stats_reason['Count'] > 0]
+            # 1. KPIs
+            if not finished_df.empty:
+                ia_win_count = len(finished_df[finished_df['Result'] == 'GAGNE'])
+                ia_total = len(finished_df)
+                ia_acc = (ia_win_count / ia_total) * 100
                 
-                if not stats_reason.empty:
-                    with st.expander("📊 Analyse des Raisons", expanded=True):
-                        chart = alt.Chart(stats_reason).mark_bar().encode(
-                            x=alt.X('Raison', axis=alt.Axis(title=None, labelAngle=0)),
-                            y=alt.Y('Taux', axis=alt.Axis(format='%', title='Réussite')),
-                            color=alt.condition(alt.datum.Taux >= 0.5, alt.value("#4ade80"), alt.value("#f87171")),
-                            tooltip=['Raison', alt.Tooltip('Taux', format='.1%'), 'Count']
-                        ).properties(height=200).configure_axis(grid=False)
-                        st.altair_chart(chart, use_container_width=True)
+                user_played = finished_df[finished_df['User_Result'].isin(['GAGNE', 'PERDU'])]
+                user_win_count = len(user_played[user_played['User_Result'] == 'GAGNE'])
+                user_total = len(user_played)
+                user_acc = (user_win_count / user_total * 100) if user_total > 0 else 0
+                
+                c_kpi1, c_kpi2, c_kpi3 = st.columns(3)
+                with c_kpi1:
+                    st.markdown(f"<div class='unified-card stat-box'><div class='stat-label'>IA SUCCESS</div><div class='stat-val color-ai'>{ia_acc:.1f}%</div><div class='stat-sub'>({ia_win_count}/{ia_total})</div></div>", unsafe_allow_html=True)
+                with c_kpi2:
+                    col_u = "color-ik" if user_acc >= ia_acc else "color-bad"
+                    st.markdown(f"<div class='unified-card stat-box'><div class='stat-label'>IK SUCCESS</div><div class='stat-val {col_u}'>{user_acc:.1f}%</div><div class='stat-sub'>({user_win_count}/{user_total})</div></div>", unsafe_allow_html=True)
+                
+                # 2. CHART
+                if 'User_Reason' in user_played.columns and not user_played.empty:
+                    stats_reason = user_played.groupby('User_Reason')['User_Result'].apply(lambda x: (x == 'GAGNE').mean()).reset_index()
+                    stats_reason.columns = ['Raison', 'Taux']
+                    stats_reason['Count'] = user_played.groupby('User_Reason')['User_Result'].count().values
+                    stats_reason = stats_reason[stats_reason['Count'] > 0]
+                    
+                    if not stats_reason.empty:
+                        with st.expander("📊 Analyse des Raisons", expanded=True):
+                            chart = alt.Chart(stats_reason).mark_bar().encode(
+                                x=alt.X('Raison', axis=alt.Axis(title=None, labelAngle=0)),
+                                y=alt.Y('Taux', axis=alt.Axis(format='%', title='Réussite')),
+                                color=alt.condition(alt.datum.Taux >= 0.5, alt.value("#4ade80"), alt.value("#f87171")),
+                                tooltip=['Raison', alt.Tooltip('Taux', format='.1%'), 'Count']
+                            ).properties(height=200).configure_axis(grid=False)
+                            st.altair_chart(chart, use_container_width=True)
 
-        # 3. TABLEAU COMPACT (AVEC NOMS DE COLONNES RESTAURÉS)
-        st.markdown("---")
-        
-        # CENTRAGE DU TABLEAU
-        _, c_tab_center, _ = st.columns([1, 10, 1])
-        
-        with c_tab_center:
+            # 3. TABLEAU COMPACT (Style V8)
+            st.markdown("---")
+            
             df_disp = df.fillna("")
             df_disp['Date'] = pd.to_datetime(df_disp['Date'], errors='coerce')
             
@@ -505,7 +670,7 @@ with tab2:
                 icon = "✅" if res == 'GAGNE' else "❌"
                 return f"{icon} {code}"
 
-            # NOMS DE COLONNES RESTAURÉS
+            # Noms courts pour compacité
             df_disp['Home'] = df_disp['Home'].apply(lambda x: get_short_code(get_clean_name(x)))
             df_disp['Away'] = df_disp['Away'].apply(lambda x: get_short_code(get_clean_name(x)))
             df_disp['Winner'] = df_disp['Real_Winner'].apply(lambda x: get_short_code(get_clean_name(x)) if x not in ["En attente...", ""] else "...")
@@ -523,6 +688,7 @@ with tab2:
             final_view = df_disp[cols].sort_index(ascending=False)
             final_view.insert(len(final_view.columns), "Del", False)
             
+            # WARNING FIX: width='stretch'
             edited = st.data_editor(
                 final_view,
                 column_config={
@@ -538,7 +704,7 @@ with tab2:
                     "Type": st.column_config.TextColumn("Typ", width="small"),
                 },
                 hide_index=True,
-                use_container_width=True # Utilise la largeur de la colonne centrée
+                use_container_width=True
             )
             
             c_act1, c_act2 = st.columns(2)
@@ -567,7 +733,7 @@ with tab3:
     
     r2_c1, r2_c2 = st.columns(2)
     with r2_c1:
-        if st.button("Force Update", type="primary", width="stretch"):
+        if st.button("Force Update", type="primary", use_container_width=True):
             with st.status("Update...") as s:
                 run_script('src/data_nba.py', "Data", s)
                 run_script('src/features_nba.py', "Stats", s)
@@ -577,7 +743,7 @@ with tab3:
                 s.update(label="Terminé", state="complete")
                 st.rerun()
     with r2_c2:
-        if st.button("Entraînement", width="stretch"):
+        if st.button("Entraînement", use_container_width=True):
             with st.status("Training...") as s:
                 succ, msg, acc = train_nba.train_model()
                 if succ:
