@@ -8,7 +8,6 @@ import sys
 import subprocess
 import time
 from nba_api.stats.static import teams
-# AJOUT: leaguegamefinder pour les scores robustes
 from nba_api.stats.endpoints import scoreboardv2, leaguestandingsv3, leaguegamefinder
 from src import train_nba
 
@@ -240,7 +239,7 @@ def clean_id_hard(val):
     except:
         return str(val).lstrip('0')
 
-# --- SCANNER V10.0 (LEAGUEGAMEFINDER HYBRID) ---
+# --- SCANNER V9.21 (HYBRID + SILENT) ---
 def scan_schedule(days_to_check=7):
     found_days = {}
     check_date = datetime.now() - timedelta(days=2) 
@@ -254,26 +253,25 @@ def scan_schedule(days_to_check=7):
     count_found = 0
     for _ in range(days_to_check):
         str_date = check_date.strftime('%Y-%m-%d')
+        finder_date = check_date.strftime('%m/%d/%Y')
+        
         day_games_list = []
         try:
-            # 1. SQUELETTE (Qui joue ?)
+            # A. SQUELETTE
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
             raw = board.game_header.get_data_frame()
             clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             
             if not clean.empty:
-                print(f"[SCAN] Date: {str_date}")
-                
-                # 2. MUSCLES (Scores via LeagueGameFinder - BEAUCOUP PLUS FIABLE)
-                # On cherche tous les matchs de cette date
+                # B. MUSCLES (LeagueGameFinder)
                 finder = leaguegamefinder.LeagueGameFinder(
-                    date_from_nullable=datetime.strptime(str_date, '%Y-%m-%d').strftime('%m/%d/%Y'),
-                    date_to_nullable=datetime.strptime(str_date, '%Y-%m-%d').strftime('%m/%d/%Y'),
-                    league_id_nullable='00' # NBA Only
+                    date_from_nullable=finder_date,
+                    date_to_nullable=finder_date,
+                    league_id_nullable='00'
                 )
-                results = finder.get_data_frame()
+                results = finder.get_data_frames()[0]
                 
-                # Mapping : (GameID_Clean, TeamID_Clean) -> PTS
+                # MAPPING
                 score_map = {}
                 if not results.empty:
                     for _, r in results.iterrows():
@@ -285,7 +283,7 @@ def scan_schedule(days_to_check=7):
                             score_map[key] = pts
                         except: continue
                 
-                # Lookup
+                # C. FUSION
                 def get_score(row, is_home):
                     try:
                         g_id = clean_id_hard(row['GAME_ID'])
@@ -297,17 +295,16 @@ def scan_schedule(days_to_check=7):
                 clean['PTS_HOME'] = clean.apply(lambda row: get_score(row, True), axis=1)
                 clean['PTS_AWAY'] = clean.apply(lambda row: get_score(row, False), axis=1)
                 
-                # FORCE STATUT (Si scores présents = FINI)
+                # D. FORCE STATUT
                 def force_status(row):
                     if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']):
                         return 3
                     return row.get('GAME_STATUS_ID', 1)
 
                 clean['GAME_STATUS_ID'] = clean.apply(force_status, axis=1)
-
                 day_games_list.append(clean)
-        except Exception as e:
-            print(f"[ERREUR API] {e}")
+                
+        except: pass
         
         # AJOUT MANUEL
         if not hist_data.empty:
@@ -467,7 +464,6 @@ with tab1:
                                 a_cls = "score-win" if score_a > score_h else "score-loss"
                                 score_vs_block = f"<div class='status-final'>FINAL</div>"
                                 
-                                # Si pas de score mais fini (historique), on met ?
                                 d_score_h = score_h if has_scores else "?"
                                 d_score_a = score_a if has_scores else "?"
                                 
@@ -545,7 +541,7 @@ with tab1:
                                 st.markdown('<div class="action-container">', unsafe_allow_html=True)
                                 if has_voted and not is_editing:
                                     st.markdown('<div class="link-btn">', unsafe_allow_html=True)
-                                    if st.button("Modifier", key=f"btn_mod_{m['mid']}", use_container_width=True):
+                                    if st.button("Modifier", key=f"btn_mod_{m['mid']}", width="stretch"):
                                         st.session_state['edit_modes'][m['mid']] = True
                                         st.rerun()
                                     st.markdown('</div>', unsafe_allow_html=True)
