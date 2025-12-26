@@ -69,11 +69,11 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-23,Portland Trail Blazers,Orlando Magic,Portland Trail Blazers,50.5%,Auto,PERDU,Orlando Magic,Orlando Magic,GAGNE,Analyse Stats
 2025-12-23,Sacramento Kings,Detroit Pistons,Detroit Pistons,77.3%,Auto,GAGNE,Detroit Pistons,Detroit Pistons,GAGNE,Analyse Stats
 2025-12-23,Los Angeles Clippers,Houston Rockets,Los Angeles Clippers,66.6%,Auto,GAGNE,Los Angeles Clippers,Houston Rockets,PERDU,Intuition / Feeling
-2025-12-25,New York Knicks,Cleveland Cavaliers,New York Knicks,76.0%,Auto,,,New York Knicks,,Domicile / Extérieur
-2025-12-25,Oklahoma City Thunder,San Antonio Spurs,San Antonio Spurs,51.8%,Auto,,,Oklahoma City Thunder,,Revanche / Rivalité
-2025-12-25,Golden State Warriors,Dallas Mavericks,Golden State Warriors,56.6%,Auto,,,Golden State Warriors,,Série / Forme du moment
-2025-12-25,Los Angeles Lakers,Houston Rockets,Los Angeles Lakers,72.8%,Auto,,,Houston Rockets,,Intuition / Feeling
-2025-12-25,Denver Nuggets,Minnesota Timberwolves,Denver Nuggets,67.0%,Auto,,,Denver Nuggets,,Analyse Stats
+2025-12-25,New York Knicks,Cleveland Cavaliers,New York Knicks,76.0%,Auto,GAGNE,New York Knicks,New York Knicks,GAGNE,Domicile / Extérieur
+2025-12-25,Oklahoma City Thunder,San Antonio Spurs,San Antonio Spurs,51.8%,Auto,GAGNE,San Antonio Spurs,Oklahoma City Thunder,PERDU,Revanche / Rivalité
+2025-12-25,Golden State Warriors,Dallas Mavericks,Golden State Warriors,56.6%,Auto,GAGNE,Golden State Warriors,Golden State Warriors,GAGNE,Série / Forme du moment
+2025-12-25,Los Angeles Lakers,Houston Rockets,Los Angeles Lakers,72.8%,Auto,PERDU,Houston Rockets,Houston Rockets,GAGNE,Intuition / Feeling
+2025-12-25,Denver Nuggets,Minnesota Timberwolves,Denver Nuggets,67.0%,Auto,PERDU,Minnesota Timberwolves,Denver Nuggets,PERDU,Analyse Stats
 2025-12-26,Atlanta Hawks,Miami Heat,Atlanta Hawks,57.5%,Auto,,,Atlanta Hawks,,Domicile / Extérieur
 2025-12-26,Orlando Magic,Charlotte Hornets,Orlando Magic,53.4%,Auto,,,Orlando Magic,,Analyse Stats
 2025-12-26,Washington Wizards,Toronto Raptors,Washington Wizards,57.2%,Auto,,,Toronto Raptors,,Analyse Stats
