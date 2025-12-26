@@ -8,19 +8,42 @@ import sys
 import subprocess
 import time
 from nba_api.stats.static import teams
-from nba_api.stats.endpoints import scoreboardv2, leaguestandingsv3
+# AJOUT: leaguegamefinder pour les scores robustes
+from nba_api.stats.endpoints import scoreboardv2, leaguestandingsv3, leaguegamefinder
 from src import train_nba
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
 
-# --- CSS ---
+# --- CSS (DESIGN V9 UNIFIED) ---
 st.markdown("""
 <style>
+    /* 1. FOND GLOBAL */
     .stApp { background-color: #262730 !important; }
+
+    /* 2. HEADER & NAV STICKY */
     header[data-testid="stHeader"] { background-color: #262730 !important; }
-    div[data-testid="stTabs"] { position: sticky; top: 2.8rem; background-color: #262730 !important; z-index: 999; padding-top: 10px; margin-top: 0px; border-bottom: 1px solid #444; }
-    .unified-card { background-color: #262730; border: 1px solid #444; border-radius: 12px; padding: 15px; margin-bottom: 0px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+    div[data-testid="stTabs"] {
+        position: sticky;
+        top: 2.8rem;
+        background-color: #262730 !important;
+        z-index: 999;
+        padding-top: 10px;
+        margin-top: 0px;
+        border-bottom: 1px solid #444;
+    }
+    
+    /* 3. CARD VISUELLE */
+    .unified-card {
+        background-color: #262730;
+        border: 1px solid #444;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 0px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+    
+    /* 4. STATS CARDS */
     .stat-box { text-align: center; padding: 10px; border-right: 1px solid rgba(255,255,255,0.1); }
     .stat-box:last-child { border-right: none; }
     .stat-label { font-size: 0.8em; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
@@ -29,33 +52,46 @@ st.markdown("""
     .color-ai { color: #00d4ff !important; }
     .color-ik { color: #4ade80 !important; }
     .color-bad { color: #f87171 !important; }
+
+    /* 5. MATCH CARDS COMPONENTS */
     .card-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; }
     .team-box { flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; }
     .vs-text { font-weight: bold; color: #666; font-size: 0.8em; padding: 0 10px; }
     .t-code { font-weight: bold; font-size: 1.3em; margin-top: 5px; line-height: 1; color: #fff; }
     .t-meta { font-size: 0.75em; color: #bbb; margin-top: 4px; }
+    
+    /* SCORES LIVE */
     .score-val { font-size: 1.8em; font-weight: 900; color: #fff; }
     .score-win { color: #4ade80; }
     .score-loss { color: #aaa; opacity: 0.6; }
     .status-final { font-size: 0.7em; color: #f87171; font-weight: bold; letter-spacing: 1px; border: 1px solid #f87171; padding: 2px 6px; border-radius: 4px; }
+
+    /* PRONOS & RESULTATS */
     .prono-section { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%; }
     .prono-row { display: flex; align-items: center; justify-content: center; gap: 15px; font-size: 0.9em; width: 100%; }
     .p-lbl { color: #888; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
     .p-val { color: #fff; font-weight: 900; font-size: 1.3em; }
     .p-conf { color: #00d4ff; font-size: 0.85em; font-weight: bold; }
+    
     .res-badge-win { background-color: rgba(74, 222, 128, 0.2); color: #4ade80; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; border: 1px solid #4ade80; }
     .res-badge-loss { background-color: rgba(248, 113, 113, 0.2); color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; border: 1px solid #f87171; }
+
     .user-choice-row { margin-top: 5px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; text-align: center; }
     .reason-text { font-size: 0.8em; color: #aaa; font-style: italic; margin-top: 2px; }
+    
     .action-container { margin-top: 5px; margin-bottom: 15px; text-align: center; }
+    
     .link-btn button { background: transparent !important; border: none !important; color: #666 !important; text-decoration: underline !important; padding: 0 !important; font-size: 0.75em !important; height: auto !important; margin-top: 2px !important; }
     .link-btn button:hover { color: #fff !important; }
     div[data-baseweb="select"] > div { background-color: #1e2026 !important; border-color: #444 !important; font-size: 0.8em !important; }
+
+    /* TABLEAU RESULTATS HTML */
     .res-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
     .res-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; }
     .res-table td { border-bottom: 1px solid #333; padding: 8px 5px; color: #ddd; }
     .res-table tr:nth-child(even) { background-color: #2d2f38; }
     .res-table tr:nth-child(odd) { background-color: #262730; }
+    
     @media (max-width: 640px) {
         .t-code { font-size: 1.1em; }
         .stButton button { width: 100%; }
@@ -197,18 +233,17 @@ def get_last_mod(filepath):
     if os.path.exists(filepath): return datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%d/%m %H:%M')
     return "N/A"
 
-# --- HELPER DE FORCE ---
-def force_id(val):
-    """Convertit n'importe quoi en String d'Entier (ex: '00123' -> '123')"""
+# --- HELPER NETTOYAGE ID ---
+def clean_id_hard(val):
     try:
-        return str(int(float(val)))
+        return str(int(float(val))).lstrip('0')
     except:
-        return str(val)
+        return str(val).lstrip('0')
 
-# --- SCANNER V10.0 (DICTIONARY MAPPING) ---
+# --- SCANNER V10.0 (LEAGUEGAMEFINDER HYBRID) ---
 def scan_schedule(days_to_check=7):
     found_days = {}
-    check_date = datetime.now() - timedelta(days=2) # Force 2 jours avant
+    check_date = datetime.now() - timedelta(days=2) 
     
     # 1. Chargement Historique
     hist_data = pd.DataFrame()
@@ -221,66 +256,54 @@ def scan_schedule(days_to_check=7):
         str_date = check_date.strftime('%Y-%m-%d')
         day_games_list = []
         try:
+            # 1. SQUELETTE (Qui joue ?)
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
             raw = board.game_header.get_data_frame()
-            scores = board.line_score.get_data_frame()
-            
             clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             
             if not clean.empty:
-                print(f"[SCAN] Date {str_date}: {len(clean)} matchs trouves.") # DEBUG CONSOLE
+                print(f"[SCAN] Date: {str_date}")
                 
-                # --- CONSTRUCTION DU DICT DE SCORES ---
-                # Structure: score_map['12345']['98765'] = 110 (MatchID -> TeamID -> Points)
+                # 2. MUSCLES (Scores via LeagueGameFinder - BEAUCOUP PLUS FIABLE)
+                # On cherche tous les matchs de cette date
+                finder = leaguegamefinder.LeagueGameFinder(
+                    date_from_nullable=datetime.strptime(str_date, '%Y-%m-%d').strftime('%m/%d/%Y'),
+                    date_to_nullable=datetime.strptime(str_date, '%Y-%m-%d').strftime('%m/%d/%Y'),
+                    league_id_nullable='00' # NBA Only
+                )
+                results = finder.get_data_frame()
+                
+                # Mapping : (GameID_Clean, TeamID_Clean) -> PTS
                 score_map = {}
-                if not scores.empty:
-                    for _, s in scores.iterrows():
+                if not results.empty:
+                    for _, r in results.iterrows():
                         try:
-                            # ON FORCE TOUT EN STRING D'ENTIER
-                            gid = force_id(s['GAME_ID'])
-                            tid = force_id(s['TEAM_ID'])
-                            pts = int(s['PTS'])
-                            
-                            if gid not in score_map: score_map[gid] = {}
-                            score_map[gid][tid] = pts
+                            gid = clean_id_hard(r['GAME_ID'])
+                            tid = clean_id_hard(r['TEAM_ID'])
+                            pts = int(r['PTS'])
+                            key = f"{gid}_{tid}"
+                            score_map[key] = pts
                         except: continue
                 
-                # --- FONCTION DE RECUPERATION ---
-                def get_pts_from_map(row, is_home):
+                # Lookup
+                def get_score(row, is_home):
                     try:
-                        g_id = force_id(row['GAME_ID'])
-                        t_id = force_id(row['HOME_TEAM_ID']) if is_home else force_id(row['VISITOR_TEAM_ID'])
-                        
-                        val = score_map.get(g_id, {}).get(t_id, None)
-                        return val
+                        g_id = clean_id_hard(row['GAME_ID'])
+                        t_id = clean_id_hard(row['HOME_TEAM_ID']) if is_home else clean_id_hard(row['VISITOR_TEAM_ID'])
+                        key = f"{g_id}_{t_id}"
+                        return score_map.get(key, None)
                     except: return None
 
-                # --- APPLICATION ---
-                clean['PTS_HOME'] = clean.apply(lambda r: get_pts_from_map(r, True), axis=1)
-                clean['PTS_AWAY'] = clean.apply(lambda r: get_pts_from_map(r, False), axis=1)
+                clean['PTS_HOME'] = clean.apply(lambda row: get_score(row, True), axis=1)
+                clean['PTS_AWAY'] = clean.apply(lambda row: get_score(row, False), axis=1)
                 
-                # --- FORCE STATUT FINI SI HISTORIQUE CONNU ---
-                if not hist_data.empty:
-                    def force_status(row):
-                        # Si on a les points, c'est fini
-                        if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']):
-                            return 3
-                        
-                        # Sinon on regarde si on a un resultat dans l'historique
-                        try:
-                            h_id = int(float(row['HOME_TEAM_ID']))
-                            if h_id in TEAMS_DB:
-                                h_name = TEAMS_DB[h_id]['full']
-                                match_hist = hist_data[
-                                    (hist_data['Date'] == str_date) & 
-                                    (hist_data['Home'] == h_name) & 
-                                    (hist_data['Result'].isin(['GAGNE', 'PERDU']))
-                                ]
-                                if not match_hist.empty: return 3
-                        except: pass
-                        return row.get('GAME_STATUS_ID', 1)
+                # FORCE STATUT (Si scores présents = FINI)
+                def force_status(row):
+                    if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']):
+                        return 3
+                    return row.get('GAME_STATUS_ID', 1)
 
-                    clean['GAME_STATUS_ID'] = clean.apply(force_status, axis=1)
+                clean['GAME_STATUS_ID'] = clean.apply(force_status, axis=1)
 
                 day_games_list.append(clean)
         except Exception as e:
@@ -288,14 +311,17 @@ def scan_schedule(days_to_check=7):
         
         # AJOUT MANUEL
         if not hist_data.empty:
-            manual_today = hist_data[(hist_data['Date'] == str_date)].copy()
-            if not manual_today.empty and not day_games_list: 
-                manual_today['GAME_STATUS_ID'] = 3 
-                manual_today['PTS_HOME'] = 0
-                manual_today['PTS_AWAY'] = 0
-                mask_unfinished = manual_today['Result'].isna() | (manual_today['Result'] == "")
-                manual_today.loc[mask_unfinished, 'GAME_STATUS_ID'] = 1
-                day_games_list.append(manual_today)
+            try:
+                hist = pd.read_csv(HISTORY_FILE)
+                manual_today = hist[(hist['Date'] == str_date)].copy()
+                if not manual_today.empty: 
+                    manual_today['GAME_STATUS_ID'] = 3 
+                    manual_today['PTS_HOME'] = 0
+                    manual_today['PTS_AWAY'] = 0
+                    mask_unfinished = manual_today['Result'].isna() | (manual_today['Result'] == "")
+                    manual_today.loc[mask_unfinished, 'GAME_STATUS_ID'] = 1
+                    day_games_list.append(manual_today)
+            except: pass
             
         if day_games_list:
             found_days[str_date] = day_games_list
@@ -519,7 +545,7 @@ with tab1:
                                 st.markdown('<div class="action-container">', unsafe_allow_html=True)
                                 if has_voted and not is_editing:
                                     st.markdown('<div class="link-btn">', unsafe_allow_html=True)
-                                    if st.button("Modifier", key=f"btn_mod_{m['mid']}"):
+                                    if st.button("Modifier", key=f"btn_mod_{m['mid']}", use_container_width=True):
                                         st.session_state['edit_modes'][m['mid']] = True
                                         st.rerun()
                                     st.markdown('</div>', unsafe_allow_html=True)
