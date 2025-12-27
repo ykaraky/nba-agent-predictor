@@ -15,8 +15,9 @@ def run_step(script_path, description):
         return False
 
     try:
+        # On lance le script et on attend qu'il finisse
         subprocess.run([sys.executable, script_path], check=True)
-        print(f"✅ {script_path} terminé avec succès.")
+        print(f"✅ {description} terminé avec succès.")
         return True
     except subprocess.CalledProcessError:
         print(f"❌ ERREUR CRITIQUE dans {script_path}.")
@@ -24,33 +25,48 @@ def run_step(script_path, description):
 
 def run_git_sync():
     print(f"\n{'='*50}")
-    print(f"☁️ SYNCHRONISATION CLOUD")
+    print(f"☁️ SYNCHRONISATION GITHUB")
     print(f"{'='*50}")
     try:
         subprocess.run(["git", "add", "."], check=True)
         date_msg = datetime.now().strftime('%Y-%m-%d %H:%M')
-        subprocess.run(["git", "commit", "-m", f"Auto-update v5 {date_msg}"], check=False)
+        # Le commit peut échouer s'il n'y a rien à changer, ce n'est pas grave (check=False)
+        subprocess.run(["git", "commit", "-m", f"Auto-update routine {date_msg}"], check=False)
         print("Envoi vers GitHub...")
         subprocess.run(["git", "push"], check=True)
-        print("✅ Synchro terminée !")
+        print("✅ Code & Data sécurisés sur GitHub !")
     except Exception as e:
-        print(f"⚠️ Erreur Git : {e}")
+        print(f"⚠️ Attention : Erreur Git ({e}), mais on continue.")
 
 # --- DÉMARRAGE NBA Agent ---
 
 print("\n🏀 --- NBA AGENT: ROUTINE --- 🏀\n")
 
-# Note les chemins : src/nom_du_fichier.py
+# 1. Mise à jour des scores et calendrier
 if not run_step('src/data_nba.py', "Mise à jour des Scores"):
     input("Entrée pour quitter...")
     exit()
 
+# 2. Calcul des stats
 run_step('src/features_nba.py', "Recalcul Stats")
+
+# 3. Vérification des paris (Gagné/Perdu)
 run_step('src/verify_bets.py', "Vérification Paris")
 
-# Envoi Cloud
+# 4. NOUVEAU : Envoi vers Supabase (Cloud Database)
+# On le fait avant Git pour être sûr que la base est à jour pour les apps externes
+run_step('src/sync_cloud.py', "Synchro Supabase")
+
+# 5. Sauvegarde du code et du CSV sur GitHub
 run_git_sync()
 
-print("\n✨ Lancement de l'interface NBA Agent...")
+# 6. Lancement de l'interface
+print(f"\n{'='*50}")
+print("✨ LANCEMENT DE L'INTERFACE")
+print(f"{'='*50}")
 time.sleep(2)
-subprocess.run([sys.executable, "-m", "streamlit", "run", "app.py"])
+
+try:
+    subprocess.run([sys.executable, "-m", "streamlit", "run", "app.py"])
+except KeyboardInterrupt:
+    print("\n[INFO] Fermeture de l'application. À demain !")
