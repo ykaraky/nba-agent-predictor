@@ -239,10 +239,13 @@ def clean_id_hard(val):
     except:
         return str(val).lstrip('0')
 
-# --- SCANNER V9.21 (HYBRID + SILENT) ---
+# --- SCANNER V9.22 (STANDARD LOGIC J-1) ---
 def scan_schedule(days_to_check=7):
     found_days = {}
-    check_date = datetime.now() - timedelta(days=2) 
+    
+    # RETOUR A LA NORMALE : On commence à J-1 (Hier)
+    # Cela garantit d'afficher "Derniers Résultats" (Hier) + "Affiches de ce soir" (Aujourd'hui)
+    check_date = datetime.now() - timedelta(days=1)
     
     # 1. Chargement Historique
     hist_data = pd.DataFrame()
