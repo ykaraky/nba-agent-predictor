@@ -4,13 +4,13 @@ import json
 import os
 import numpy as np
 
-# --- CONFIG ---
-SUPABASE_URL = "https://meqvmpqyizffzlvomqbb.supabase.co"
+# --- CONFIGURATION ---
+SUPABASE_URL = "https://meqvmpqyizffzlvomqbb.supabase.co/" 
 SUPABASE_KEY = "sb_publishable_bSPoeHBKUrxsEwn0ZI5cdA_iAAK3wza"
 CSV_PATH = "data/bets_history.csv"
 
 def sync_to_supabase():
-    print("--- SYNCHRONISATION CLOUD ---")
+    print("--- SYNCHRONISATION CLOUD (V2) ---")
     
     if not os.path.exists(CSV_PATH):
         print("[SKIP] Pas de CSV trouvé.")
@@ -20,11 +20,12 @@ def sync_to_supabase():
     # Nettoyage : NaN devient None (null)
     df = df.replace({np.nan: None})
     
-    # On prend les 50 derniers matchs pour la mise à jour rapide
-    df_recent = df.tail(50) 
+    # On prend les 100 derniers matchs pour être large et mettre à jour les types
+    df_recent = df.tail(100) 
 
     rows = []
     for _, row in df_recent.iterrows():
+        # Construction de l'objet JSON complet
         rows.append({
             "game_date": row['Date'],
             "home_team": row['Home'],
@@ -35,26 +36,26 @@ def sync_to_supabase():
             "real_winner": row['Real_Winner'],
             "user_prediction": row.get('User_Prediction'),
             "user_result": row.get('User_Result'),
-            "user_reason": row.get('User_Reason')
+            "user_reason": row.get('User_Reason'),
+            "type": row.get('Type', 'Auto') # <--- AJOUT DE LA COLONNE TYPE
         })
 
-    # --- MODIFICATION ICI : On précise les colonnes de conflit dans l'URL ---
-    # Cela dit à Supabase : "Vérifie si ce trio existe déjà"
+    # Endpoint avec option UPSERT (Mise à jour si conflit sur la clé unique)
     endpoint = f"{SUPABASE_URL}/rest/v1/bets_history?on_conflict=game_date,home_team,away_team"
     
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates" # Force la mise à jour (Upsert)
+        "Prefer": "resolution=merge-duplicates"
     }
 
     try:
+        print(f"Envoi de {len(rows)} lignes...")
         r = requests.post(endpoint, headers=headers, json=rows)
         
-        # 200 = OK, 201 = Created
         if r.status_code in [200, 201]:
-            print(f"[OK] {len(rows)} matchs synchronisés (Upsert).")
+            print(f"[OK] Synchronisation réussie (Types mis à jour).")
         else:
             print(f"[ERREUR] {r.status_code} - {r.text}")
             
