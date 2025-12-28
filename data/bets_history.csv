@@ -92,9 +92,4 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-27,Houston Rockets,Cleveland Cavaliers,Houston Rockets,62.7%,Auto,GAGNE,Houston Rockets,Houston Rockets,GAGNE,Série / Forme du moment
 2025-12-27,Minnesota Timberwolves,Brooklyn Nets,Minnesota Timberwolves,53.0%,Auto,PERDU,Brooklyn Nets,Minnesota Timberwolves,PERDU,Analyse Stats
 2025-12-27,San Antonio Spurs,Utah Jazz,San Antonio Spurs,81.9%,Auto,PERDU,Utah Jazz,San Antonio Spurs,PERDU,Série / Forme du moment
-2025-12-28,Toronto Raptors,Golden State Warriors,Golden State Warriors,54.0%,Auto,,,Golden State Warriors,,Intuition / Feeling
-2025-12-28,Oklahoma City Thunder,Philadelphia 76ers,Oklahoma City Thunder,59.8%,Auto,,,Oklahoma City Thunder,,Domicile / Extérieur
-2025-12-28,Washington Wizards,Memphis Grizzlies,Washington Wizards,54.5%,Auto,,,Memphis Grizzlies,,Série / Forme du moment
-2025-12-28,Portland Trail Blazers,Boston Celtics,Portland Trail Blazers,50.3%,Auto,,,Boston Celtics,,Série / Forme du moment
-2025-12-28,Los Angeles Clippers,Detroit Pistons,Los Angeles Clippers,56.3%,Auto,,,Los Angeles Clippers,,Série / Forme du moment
-2025-12-28,Los Angeles Lakers,Sacramento Kings,Los Angeles Lakers,69.5%,Auto,,,Los Angeles Lakers,,Domicile / Extérieur
+2025-12-28,Toronto Raptors,Golden State Warriors,Golden State Warriors,54.0%,Auto,,,,,

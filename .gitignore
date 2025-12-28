@@ -8,6 +8,8 @@ __pycache__/
 # Ignorer les variables d'environnement (si tu en as plus tard)
 .env
 
+.streamlit/secrets.toml
+
 # Ignorer le dossier d'environnement virtuel (si tu en crées un)
 .venv/
 env/

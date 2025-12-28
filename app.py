@@ -7,12 +7,37 @@ import os
 import sys
 import subprocess
 import time
+import requests
+import json
+# Import dotenv pour gérer le local sans secrets.toml
+from dotenv import load_dotenv 
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import scoreboardv2, leaguestandingsv3, leaguegamefinder
 from src import train_nba
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
+
+# --- CHARGEMENT SECRETS ROBUSTE (Local .env OU Cloud Secrets) ---
+load_dotenv() # Charge le fichier .env s'il existe
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# Si pas trouvé dans .env, on essaie les secrets Streamlit (Cloud)
+if not SUPABASE_URL:
+    try:
+        SUPABASE_URL = st.secrets["supabase"]["url"]
+        SUPABASE_KEY = st.secrets["supabase"]["key"]
+    except:
+        pass # On gère l'erreur plus bas
+
+# Vérification finale
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.error("🚨 ERREUR CONFIG : Clés Supabase introuvables.")
+    st.info("En Local : Vérifiez qu'un fichier .env existe à la racine.")
+    st.info("Sur le Cloud : Vérifiez les 'Secrets' dans les settings de l'app.")
+    st.stop()
 
 # --- CSS (DESIGN V9 UNIFIED) ---
 st.markdown("""
@@ -45,9 +70,11 @@ st.markdown("""
     /* 4. STATS CARDS */
     .stat-box { text-align: center; padding: 10px; border-right: 1px solid rgba(255,255,255,0.1); }
     .stat-box:last-child { border-right: none; }
+    
     .stat-label { font-size: 0.8em; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
     .stat-val { font-size: 2em; font-weight: 900; color: #fff; line-height: 1.1; }
     .stat-sub { font-size: 0.8em; font-weight: bold; }
+    
     .color-ai { color: #00d4ff !important; }
     .color-ik { color: #4ade80 !important; }
     .color-bad { color: #f87171 !important; }
@@ -118,6 +145,99 @@ REASONS_LIST = [
 ]
 
 # --- 3. FONCTIONS ---
+
+# --- SUPABASE FUNCTIONS ---
+@st.cache_data(ttl=60)
+def load_history_from_supabase():
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    url = f"{SUPABASE_URL}/rest/v1/bets_history?select=*"
+    
+    try:
+        r = requests.get(url, headers=headers)
+        if r.status_code == 200:
+            data = r.json()
+            if not data: return pd.DataFrame()
+            
+            df = pd.DataFrame(data)
+            
+            if 'type' not in df.columns: df['type'] = 'Auto'
+
+            rename_map = {
+                'game_date': 'Date', 'home_team': 'Home', 'away_team': 'Away',
+                'predicted_winner': 'Predicted_Winner', 'confidence': 'Confidence',
+                'result_ia': 'Result', 'real_winner': 'Real_Winner',
+                'user_prediction': 'User_Prediction', 'user_result': 'User_Result',
+                'user_reason': 'User_Reason', 'type': 'Type'
+            }
+            df = df.rename(columns=rename_map)
+            return df
+        else:
+            st.error(f"Erreur Supabase: {r.status_code}")
+            return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Erreur Connection: {e}")
+        return pd.DataFrame()
+
+def save_user_vote_cloud(date_str, h_name, a_name, user_choice, reason, match_key):
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    url = f"{SUPABASE_URL}/rest/v1/bets_history?game_date=eq.{date_str}&home_team=eq.{h_name}&away_team=eq.{a_name}"
+    
+    payload = {
+        "user_prediction": user_choice,
+        "user_reason": reason
+    }
+    
+    try:
+        r = requests.patch(url, headers=headers, json=payload)
+        if r.status_code in [200, 204]:
+            st.toast("Vote enregistré dans le Cloud ☁️", icon="✅")
+            st.session_state['edit_modes'][match_key] = False
+            load_history_from_supabase.clear()
+        else:
+            st.error(f"Erreur sauvegarde: {r.text}")
+    except Exception as e:
+        st.error(f"Erreur: {e}")
+
+# --- NOUVEAU : SAUVEGARDE MANUELLE CLOUD ---
+def save_bet_manual_cloud(date, h_name, a_name, w_name, conf):
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    url = f"{SUPABASE_URL}/rest/v1/bets_history"
+    
+    payload = {
+        "game_date": date,
+        "home_team": h_name,
+        "away_team": a_name,
+        "predicted_winner": w_name,
+        "confidence": f"{conf:.1f}%",
+        "type": "Manual"
+    }
+    
+    try:
+        r = requests.post(url, headers=headers, json=payload)
+        if r.status_code in [200, 201, 204]:
+            st.toast("Match ajouté au Cloud ☁️", icon="✅")
+            load_history_from_supabase.clear() 
+        else:
+            st.error(f"Erreur Cloud: {r.text}")
+    except Exception as e:
+        st.error(f"Erreur connection: {e}")
+
+# --- FONCTIONS LOCALES ---
+
 def get_teams_dict():
     nba_teams = teams.get_teams()
     return {t['id']: {'full': t['full_name'], 'code': t['abbreviation'], 'nick': t['nickname']} for t in nba_teams}
@@ -203,7 +323,7 @@ def get_prediction(model, df_history, h_id, a_id):
     }])
     return model.predict_proba(row)[0][1], {'rh': rh, 'ra': ra}
 
-def save_bet_auto(date, h_name, a_name, w_name, conf):
+def save_bet_auto_local(date, h_name, a_name, w_name, conf):
     if not os.path.exists(HISTORY_FILE): 
         with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Prediction,User_Result,User_Reason\n")
     try:
@@ -211,62 +331,35 @@ def save_bet_auto(date, h_name, a_name, w_name, conf):
         if not df[(df['Date'] == date) & (df['Home'] == h_name) & (df['Away'] == a_name)].empty: return
     except: pass
     with open(HISTORY_FILE, 'a') as f:
-        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Auto,,,,")
-
-def save_user_vote(date_str, h_name, a_name, user_choice, reason, match_key):
-    if not os.path.exists(HISTORY_FILE): return
-    try:
-        df = pd.read_csv(HISTORY_FILE)
-        if 'User_Prediction' not in df.columns: df['User_Prediction'] = None
-        if 'User_Reason' not in df.columns: df['User_Reason'] = None
-        mask = (df['Date'] == date_str) & (df['Home'] == h_name) & (df['Away'] == a_name)
-        if df[mask].empty: return
-        idx = df[mask].index[0]
-        df.at[idx, 'User_Prediction'] = user_choice
-        df.at[idx, 'User_Reason'] = reason
-        df.to_csv(HISTORY_FILE, index=False)
-        st.session_state['edit_modes'][match_key] = False
-    except: pass
+        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Manual,,,,")
 
 def get_last_mod(filepath):
     if os.path.exists(filepath): return datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%d/%m %H:%M')
     return "N/A"
 
-# --- HELPER NETTOYAGE ID ---
 def clean_id_hard(val):
-    try:
-        return str(int(float(val))).lstrip('0')
-    except:
-        return str(val).lstrip('0')
+    try: return str(int(float(val))).lstrip('0')
+    except: return str(val).lstrip('0')
 
-# --- SCANNER V9.22 (STANDARD LOGIC J-1) ---
+# --- SCANNER V9.21 ---
 def scan_schedule(days_to_check=7):
     found_days = {}
+    check_date = datetime.now() - timedelta(days=1) 
     
-    # RETOUR A LA NORMALE : On commence à J-1 (Hier)
-    # Cela garantit d'afficher "Derniers Résultats" (Hier) + "Affiches de ce soir" (Aujourd'hui)
-    check_date = datetime.now() - timedelta(days=1)
-    
-    # 1. Chargement Historique
-    hist_data = pd.DataFrame()
-    if os.path.exists(HISTORY_FILE):
-        try: hist_data = pd.read_csv(HISTORY_FILE)
-        except: pass
+    # CHARGEMENT CLOUD
+    hist_data = load_history_from_supabase()
     
     count_found = 0
     for _ in range(days_to_check):
         str_date = check_date.strftime('%Y-%m-%d')
         finder_date = check_date.strftime('%m/%d/%Y')
-        
         day_games_list = []
         try:
-            # A. SQUELETTE
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
             raw = board.game_header.get_data_frame()
             clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             
             if not clean.empty:
-                # B. MUSCLES (LeagueGameFinder)
                 finder = leaguegamefinder.LeagueGameFinder(
                     date_from_nullable=finder_date,
                     date_to_nullable=finder_date,
@@ -274,7 +367,6 @@ def scan_schedule(days_to_check=7):
                 )
                 results = finder.get_data_frames()[0]
                 
-                # MAPPING
                 score_map = {}
                 if not results.empty:
                     for _, r in results.iterrows():
@@ -286,7 +378,6 @@ def scan_schedule(days_to_check=7):
                             score_map[key] = pts
                         except: continue
                 
-                # C. FUSION
                 def get_score(row, is_home):
                     try:
                         g_id = clean_id_hard(row['GAME_ID'])
@@ -298,7 +389,6 @@ def scan_schedule(days_to_check=7):
                 clean['PTS_HOME'] = clean.apply(lambda row: get_score(row, True), axis=1)
                 clean['PTS_AWAY'] = clean.apply(lambda row: get_score(row, False), axis=1)
                 
-                # D. FORCE STATUT
                 def force_status(row):
                     if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']):
                         return 3
@@ -309,11 +399,9 @@ def scan_schedule(days_to_check=7):
                 
         except: pass
         
-        # AJOUT MANUEL
         if not hist_data.empty:
             try:
-                hist = pd.read_csv(HISTORY_FILE)
-                manual_today = hist[(hist['Date'] == str_date)].copy()
+                manual_today = hist_data[(hist_data['Date'] == str_date) & (hist_data['Type'] == 'Manual')].copy()
                 if not manual_today.empty: 
                     manual_today['GAME_STATUS_ID'] = 3 
                     manual_today['PTS_HOME'] = 0
@@ -351,15 +439,15 @@ tab1, tab2, tab3 = st.tabs(["MATCHS", "STATS", "ADMIN"])
 # ==============================================================================
 with tab1:
     if not st.session_state['schedule_data']:
-        with st.spinner("Chargement..."):
+        with st.spinner("Chargement Cloud..."):
             st.session_state['schedule_data'] = scan_schedule()
 
     schedule = st.session_state.get('schedule_data', {})
     
-    if schedule:
-        hist_df = pd.DataFrame()
-        if os.path.exists(HISTORY_FILE): hist_df = pd.read_csv(HISTORY_FILE)
+    # ICI : On lit le DF Cloud
+    hist_df = load_history_from_supabase()
 
+    if schedule:
         for date_key, dfs_list in schedule.items():
             is_today = date_key == datetime.now().strftime('%Y-%m-%d')
             try: d_fmt = datetime.strptime(date_key, '%Y-%m-%d').strftime('%d.%m.%Y')
@@ -421,7 +509,7 @@ with tab1:
                             if prob:
                                 w = h_name if prob > 0.5 else a_name
                                 c = prob*100 if prob > 0.5 else (1-prob)*100
-                                save_bet_auto(date_key, h_name, a_name, w, c)
+                                save_bet_auto_local(date_key, h_name, a_name, w, c) 
                                 st.rerun()
                     
                     if prob is not None and h_id != 0:
@@ -554,10 +642,10 @@ with tab1:
                                     ch = TEAMS_DB.get(m['hid'], {}).get('code', 'H')
                                     ca = TEAMS_DB.get(m['aid'], {}).get('code', 'A')
                                     if b1.button(ch, key=f"bh_{m['mid']}", width="stretch"):
-                                        save_user_vote(m['d'], m['h'], m['a'], m['h'], reason_choice, m['mid'])
+                                        save_user_vote_cloud(m['d'], m['h'], m['a'], m['h'], reason_choice, m['mid'])
                                         st.rerun()
                                     if b2.button(ca, key=f"ba_{m['mid']}", width="stretch"):
-                                        save_user_vote(m['d'], m['h'], m['a'], m['a'], reason_choice, m['mid'])
+                                        save_user_vote_cloud(m['d'], m['h'], m['a'], m['a'], reason_choice, m['mid'])
                                         st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -565,9 +653,8 @@ with tab1:
         st.info("Aucun match.")
 
     # 4. RESULTATS
-    if os.path.exists(HISTORY_FILE):
-        hist = pd.read_csv(HISTORY_FILE)
-        finished = hist[hist['Result'].isin(['GAGNE', 'PERDU'])].copy()
+    if not hist_df.empty:
+        finished = hist_df[hist_df['Result'].isin(['GAGNE', 'PERDU'])].copy()
         
         if not finished.empty:
             st.write("")
@@ -610,8 +697,10 @@ with tab2:
     _, c_tab_center, _ = st.columns([1, 10, 1])
     
     with c_tab_center:
-        if os.path.exists(HISTORY_FILE):
-            df = pd.read_csv(HISTORY_FILE)
+        # LECTURE CLOUD POUR STATS
+        df = hist_df.copy()
+        
+        if not df.empty:
             finished_df = df[df['Result'].isin(['GAGNE', 'PERDU'])].copy()
             
             # 1. KPIs
@@ -680,39 +769,8 @@ with tab2:
             final_view = df_disp[cols].sort_index(ascending=False)
             final_view.insert(len(final_view.columns), "Del", False)
             
-            edited = st.data_editor(
-                final_view,
-                column_config={
-                    "Del": st.column_config.CheckboxColumn("🗑️", width="small"),
-                    "Date": st.column_config.DateColumn("Date", format="DD.MM", width="small"),
-                    "Home": st.column_config.TextColumn("Home", width="small"),
-                    "Away": st.column_config.TextColumn("Away", width="small"),
-                    "Winner": st.column_config.TextColumn("Winner", width="small"),
-                    "Prono IK": st.column_config.TextColumn("Prono IK", width="small"),
-                    "User_Reason": st.column_config.TextColumn("Raison", width="medium"),
-                    "Prono IA": st.column_config.TextColumn("Prono IA", width="small"),
-                    "Confidence": st.column_config.TextColumn("%", width="small"),
-                    "Type": st.column_config.TextColumn("Typ", width="small"),
-                },
-                hide_index=True,
-                width="stretch"
-            )
-            
-            c_act1, c_act2 = st.columns(2)
-            with c_act1:
-                if st.button("Supprimer la sélection"):
-                    to_del_idx = edited[edited.Del == True].index
-                    if not to_del_idx.empty:
-                        orig = pd.read_csv(HISTORY_FILE)
-                        orig.drop(to_del_idx, inplace=True)
-                        orig.to_csv(HISTORY_FILE, index=False)
-                        st.success("Supprimé"); time.sleep(0.5); st.rerun()
-            with c_act2:
-                if st.button("Supprimer les doublons"):
-                     orig = pd.read_csv(HISTORY_FILE)
-                     orig.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last', inplace=True)
-                     orig.to_csv(HISTORY_FILE, index=False)
-                     st.success("Doublons supprimés"); time.sleep(0.5); st.rerun()
+            # NOTE: En mode Cloud, l'édition du tableau est désactivée car elle n'écrit pas dans Supabase
+            st.dataframe(final_view, hide_index=True, use_container_width=True)
 
 # ==============================================================================
 # TAB 3 : ADMIN
@@ -762,6 +820,9 @@ with tab3:
                 win_name = TEAMS_DB[h_id]['full'] if prob > 0.5 else TEAMS_DB[a_id]['full']
                 conf = prob*100 if prob > 0.5 else (1-prob)*100
                 st.success(f"Vainqueur : {win_name} ({conf:.1f}%)")
-                save_bet_auto(dt.strftime('%Y-%m-%d'), TEAMS_DB[h_id]['full'], TEAMS_DB[a_id]['full'], win_name, conf)
+                # DOUBLE ECRITURE : Local (pour le cerveau) + Cloud (pour l'affichage)
+                save_bet_auto_local(dt.strftime('%Y-%m-%d'), TEAMS_DB[h_id]['full'], TEAMS_DB[a_id]['full'], win_name, conf)
+                save_bet_manual_cloud(dt.strftime('%Y-%m-%d'), TEAMS_DB[h_id]['full'], TEAMS_DB[a_id]['full'], win_name, conf)
+                
                 st.session_state['schedule_data'] = {} 
                 st.rerun()
