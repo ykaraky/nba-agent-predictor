@@ -3,10 +3,14 @@ import requests
 import json
 import os
 import numpy as np
+from dotenv import load_dotenv # <--- AJOUT
 
-# --- CONFIGURATION ---
-SUPABASE_URL = "https://meqvmpqyizffzlvomqbb.supabase.co/" 
-SUPABASE_KEY = "sb_publishable_bSPoeHBKUrxsEwn0ZI5cdA_iAAK3wza"
+# Chargement des secrets depuis .env
+load_dotenv()
+
+# --- CONFIGURATION SECURISEE ---
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 CSV_PATH = "data/bets_history.csv"
 
 def sync_to_supabase():

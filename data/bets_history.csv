@@ -83,12 +83,13 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-26,New Orleans Pelicans,Phoenix Suns,New Orleans Pelicans,87.3%,Auto,PERDU,Phoenix Suns,Phoenix Suns,GAGNE,Analyse Stats
 2025-12-26,Utah Jazz,Detroit Pistons,Utah Jazz,65.2%,Auto,GAGNE,Utah Jazz,Detroit Pistons,PERDU,Analyse Stats
 2025-12-26,Portland Trail Blazers,Los Angeles Clippers,Portland Trail Blazers,65.3%,Auto,PERDU,Los Angeles Clippers,Portland Trail Blazers,PERDU,Série / Forme du moment
-2025-12-27,Sacramento Kings,Dallas Mavericks,Sacramento Kings,63.7%,Auto,,,Sacramento Kings,,Blessure / Effectif
-2025-12-27,Orlando Magic,Denver Nuggets,Denver Nuggets,61.9%,Auto,,,Denver Nuggets,,Série / Forme du moment
-2025-12-27,New Orleans Pelicans,Phoenix Suns,New Orleans Pelicans,60.8%,Auto,,,New Orleans Pelicans,,Domicile / Extérieur
-2025-12-27,Atlanta Hawks,New York Knicks,Atlanta Hawks,54.2%,Auto,,,Atlanta Hawks,,Revanche / Rivalité
-2025-12-27,Miami Heat,Indiana Pacers,Miami Heat,55.9%,Auto,,,Miami Heat,,Analyse Stats
-2025-12-27,Chicago Bulls,Milwaukee Bucks,Chicago Bulls,66.2%,Auto,,,Chicago Bulls,,Série / Forme du moment
-2025-12-27,Houston Rockets,Cleveland Cavaliers,Houston Rockets,62.7%,Auto,,,Houston Rockets,,Série / Forme du moment
-2025-12-27,Minnesota Timberwolves,Brooklyn Nets,Minnesota Timberwolves,53.0%,Auto,,,Minnesota Timberwolves,,Analyse Stats
-2025-12-27,San Antonio Spurs,Utah Jazz,San Antonio Spurs,81.9%,Auto,,,San Antonio Spurs,,Série / Forme du moment
+2025-12-27,Sacramento Kings,Dallas Mavericks,Sacramento Kings,63.7%,Auto,GAGNE,Sacramento Kings,Sacramento Kings,GAGNE,Blessure / Effectif
+2025-12-27,Orlando Magic,Denver Nuggets,Denver Nuggets,61.9%,Auto,PERDU,Orlando Magic,Denver Nuggets,PERDU,Série / Forme du moment
+2025-12-27,New Orleans Pelicans,Phoenix Suns,New Orleans Pelicans,60.8%,Auto,PERDU,Phoenix Suns,New Orleans Pelicans,PERDU,Domicile / Extérieur
+2025-12-27,Atlanta Hawks,New York Knicks,Atlanta Hawks,54.2%,Auto,PERDU,New York Knicks,Atlanta Hawks,PERDU,Revanche / Rivalité
+2025-12-27,Miami Heat,Indiana Pacers,Miami Heat,55.9%,Auto,GAGNE,Miami Heat,Miami Heat,GAGNE,Analyse Stats
+2025-12-27,Chicago Bulls,Milwaukee Bucks,Chicago Bulls,66.2%,Auto,PERDU,Milwaukee Bucks,Chicago Bulls,PERDU,Série / Forme du moment
+2025-12-27,Houston Rockets,Cleveland Cavaliers,Houston Rockets,62.7%,Auto,GAGNE,Houston Rockets,Houston Rockets,GAGNE,Série / Forme du moment
+2025-12-27,Minnesota Timberwolves,Brooklyn Nets,Minnesota Timberwolves,53.0%,Auto,PERDU,Brooklyn Nets,Minnesota Timberwolves,PERDU,Analyse Stats
+2025-12-27,San Antonio Spurs,Utah Jazz,San Antonio Spurs,81.9%,Auto,PERDU,Utah Jazz,San Antonio Spurs,PERDU,Série / Forme du moment
+2025-12-28,Toronto Raptors,Golden State Warriors,Golden State Warriors,54.0%,Auto,,,,,
