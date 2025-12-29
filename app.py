@@ -9,8 +9,6 @@ import subprocess
 import time
 import requests
 import json
-# Import dotenv pour gérer le local sans secrets.toml
-from dotenv import load_dotenv 
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import scoreboardv2, leaguestandingsv3, leaguegamefinder
 from src import train_nba
@@ -18,34 +16,36 @@ from src import train_nba
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
 
-# --- CHARGEMENT SECRETS ROBUSTE (Local .env OU Cloud Secrets) ---
-load_dotenv() # Charge le fichier .env s'il existe
+# --- SIDEBAR (CACHE CONTROL) ---
+with st.sidebar:
+    st.image(APP_LOGO, width=100) if 'APP_LOGO' in locals() else st.title("🏀")
+    st.markdown("### Contrôle")
+    if st.button("🔄 Rafraîchir Données Cloud", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-# Si pas trouvé dans .env, on essaie les secrets Streamlit (Cloud)
-if not SUPABASE_URL:
-    try:
+# --- SUPABASE CREDENTIALS ---
+try:
+    if "supabase" in st.secrets:
         SUPABASE_URL = st.secrets["supabase"]["url"]
         SUPABASE_KEY = st.secrets["supabase"]["key"]
-    except:
-        pass # On gère l'erreur plus bas
+    else:
+        from dotenv import load_dotenv
+        load_dotenv()
+        SUPABASE_URL = os.getenv("SUPABASE_URL")
+        SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+except:
+    SUPABASE_URL = None
+    SUPABASE_KEY = None
 
-# Vérification finale
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("🚨 ERREUR CONFIG : Clés Supabase introuvables.")
-    st.info("En Local : Vérifiez qu'un fichier .env existe à la racine.")
-    st.info("Sur le Cloud : Vérifiez les 'Secrets' dans les settings de l'app.")
+    st.error("🚨 ERREUR : Clés Supabase introuvables.")
     st.stop()
 
 # --- CSS (DESIGN V9 UNIFIED) ---
 st.markdown("""
 <style>
-    /* 1. FOND GLOBAL */
     .stApp { background-color: #262730 !important; }
-
-    /* 2. HEADER & NAV STICKY */
     header[data-testid="stHeader"] { background-color: #262730 !important; }
     div[data-testid="stTabs"] {
         position: sticky;
@@ -56,8 +56,6 @@ st.markdown("""
         margin-top: 0px;
         border-bottom: 1px solid #444;
     }
-    
-    /* 3. CARD VISUELLE */
     .unified-card {
         background-color: #262730;
         border: 1px solid #444;
@@ -66,58 +64,41 @@ st.markdown("""
         margin-bottom: 0px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
-    
-    /* 4. STATS CARDS */
     .stat-box { text-align: center; padding: 10px; border-right: 1px solid rgba(255,255,255,0.1); }
     .stat-box:last-child { border-right: none; }
-    
     .stat-label { font-size: 0.8em; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
     .stat-val { font-size: 2em; font-weight: 900; color: #fff; line-height: 1.1; }
     .stat-sub { font-size: 0.8em; font-weight: bold; }
-    
     .color-ai { color: #00d4ff !important; }
     .color-ik { color: #4ade80 !important; }
     .color-bad { color: #f87171 !important; }
-
-    /* 5. MATCH CARDS COMPONENTS */
     .card-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; }
     .team-box { flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; }
     .vs-text { font-weight: bold; color: #666; font-size: 0.8em; padding: 0 10px; }
     .t-code { font-weight: bold; font-size: 1.3em; margin-top: 5px; line-height: 1; color: #fff; }
     .t-meta { font-size: 0.75em; color: #bbb; margin-top: 4px; }
-    
-    /* SCORES LIVE */
     .score-val { font-size: 1.8em; font-weight: 900; color: #fff; }
     .score-win { color: #4ade80; }
     .score-loss { color: #aaa; opacity: 0.6; }
     .status-final { font-size: 0.7em; color: #f87171; font-weight: bold; letter-spacing: 1px; border: 1px solid #f87171; padding: 2px 6px; border-radius: 4px; }
-
-    /* PRONOS & RESULTATS */
     .prono-section { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%; }
     .prono-row { display: flex; align-items: center; justify-content: center; gap: 15px; font-size: 0.9em; width: 100%; }
     .p-lbl { color: #888; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
     .p-val { color: #fff; font-weight: 900; font-size: 1.3em; }
     .p-conf { color: #00d4ff; font-size: 0.85em; font-weight: bold; }
-    
     .res-badge-win { background-color: rgba(74, 222, 128, 0.2); color: #4ade80; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; border: 1px solid #4ade80; }
     .res-badge-loss { background-color: rgba(248, 113, 113, 0.2); color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; border: 1px solid #f87171; }
-
     .user-choice-row { margin-top: 5px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); width: 100%; text-align: center; }
     .reason-text { font-size: 0.8em; color: #aaa; font-style: italic; margin-top: 2px; }
-    
     .action-container { margin-top: 5px; margin-bottom: 15px; text-align: center; }
-    
     .link-btn button { background: transparent !important; border: none !important; color: #666 !important; text-decoration: underline !important; padding: 0 !important; font-size: 0.75em !important; height: auto !important; margin-top: 2px !important; }
     .link-btn button:hover { color: #fff !important; }
     div[data-baseweb="select"] > div { background-color: #1e2026 !important; border-color: #444 !important; font-size: 0.8em !important; }
-
-    /* TABLEAU RESULTATS HTML */
     .res-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
     .res-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; }
     .res-table td { border-bottom: 1px solid #333; padding: 8px 5px; color: #ddd; }
     .res-table tr:nth-child(even) { background-color: #2d2f38; }
     .res-table tr:nth-child(odd) { background-color: #262730; }
-    
     @media (max-width: 640px) {
         .t-code { font-size: 1.1em; }
         .stButton button { width: 100%; }
@@ -155,17 +136,13 @@ def load_history_from_supabase():
         "Content-Type": "application/json"
     }
     url = f"{SUPABASE_URL}/rest/v1/bets_history?select=*"
-    
     try:
         r = requests.get(url, headers=headers)
         if r.status_code == 200:
             data = r.json()
             if not data: return pd.DataFrame()
-            
             df = pd.DataFrame(data)
-            
             if 'type' not in df.columns: df['type'] = 'Auto'
-
             rename_map = {
                 'game_date': 'Date', 'home_team': 'Home', 'away_team': 'Away',
                 'predicted_winner': 'Predicted_Winner', 'confidence': 'Confidence',
@@ -175,12 +152,8 @@ def load_history_from_supabase():
             }
             df = df.rename(columns=rename_map)
             return df
-        else:
-            st.error(f"Erreur Supabase: {r.status_code}")
-            return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Erreur Connection: {e}")
         return pd.DataFrame()
+    except: return pd.DataFrame()
 
 def save_user_vote_cloud(date_str, h_name, a_name, user_choice, reason, match_key):
     headers = {
@@ -190,24 +163,15 @@ def save_user_vote_cloud(date_str, h_name, a_name, user_choice, reason, match_ke
         "Prefer": "return=minimal"
     }
     url = f"{SUPABASE_URL}/rest/v1/bets_history?game_date=eq.{date_str}&home_team=eq.{h_name}&away_team=eq.{a_name}"
-    
-    payload = {
-        "user_prediction": user_choice,
-        "user_reason": reason
-    }
-    
+    payload = { "user_prediction": user_choice, "user_reason": reason }
     try:
         r = requests.patch(url, headers=headers, json=payload)
         if r.status_code in [200, 204]:
-            st.toast("Vote enregistré dans le Cloud ☁️", icon="✅")
+            st.toast("Vote enregistré ☁️", icon="✅")
             st.session_state['edit_modes'][match_key] = False
             load_history_from_supabase.clear()
-        else:
-            st.error(f"Erreur sauvegarde: {r.text}")
-    except Exception as e:
-        st.error(f"Erreur: {e}")
+    except: pass
 
-# --- NOUVEAU : SAUVEGARDE MANUELLE CLOUD ---
 def save_bet_manual_cloud(date, h_name, a_name, w_name, conf):
     headers = {
         "apikey": SUPABASE_KEY,
@@ -216,7 +180,6 @@ def save_bet_manual_cloud(date, h_name, a_name, w_name, conf):
         "Prefer": "return=minimal"
     }
     url = f"{SUPABASE_URL}/rest/v1/bets_history"
-    
     payload = {
         "game_date": date,
         "home_team": h_name,
@@ -225,19 +188,14 @@ def save_bet_manual_cloud(date, h_name, a_name, w_name, conf):
         "confidence": f"{conf:.1f}%",
         "type": "Manual"
     }
-    
     try:
         r = requests.post(url, headers=headers, json=payload)
         if r.status_code in [200, 201, 204]:
             st.toast("Match ajouté au Cloud ☁️", icon="✅")
             load_history_from_supabase.clear() 
-        else:
-            st.error(f"Erreur Cloud: {r.text}")
-    except Exception as e:
-        st.error(f"Erreur connection: {e}")
+    except: pass
 
 # --- FONCTIONS LOCALES ---
-
 def get_teams_dict():
     nba_teams = teams.get_teams()
     return {t['id']: {'full': t['full_name'], 'code': t['abbreviation'], 'nick': t['nickname']} for t in nba_teams}
@@ -341,19 +299,19 @@ def clean_id_hard(val):
     try: return str(int(float(val))).lstrip('0')
     except: return str(val).lstrip('0')
 
-# --- SCANNER V9.21 ---
+# --- SCANNER V10.4 (SEARCH & STOP) ---
 def scan_schedule(days_to_check=7):
     found_days = {}
-    check_date = datetime.now() - timedelta(days=1) 
     
-    # CHARGEMENT CLOUD
+    # 1. Chargement Historique Cloud
     hist_data = load_history_from_supabase()
     
-    count_found = 0
-    for _ in range(days_to_check):
-        str_date = check_date.strftime('%Y-%m-%d')
-        finder_date = check_date.strftime('%m/%d/%Y')
-        day_games_list = []
+    # MISSION PASSÉ
+    target_date = datetime.now() - timedelta(days=1)
+    found_past = False
+    for _ in range(5):
+        str_date = target_date.strftime('%Y-%m-%d')
+        finder_date = target_date.strftime('%m/%d/%Y')
         try:
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
             raw = board.game_header.get_data_frame()
@@ -361,9 +319,7 @@ def scan_schedule(days_to_check=7):
             
             if not clean.empty:
                 finder = leaguegamefinder.LeagueGameFinder(
-                    date_from_nullable=finder_date,
-                    date_to_nullable=finder_date,
-                    league_id_nullable='00'
+                    date_from_nullable=finder_date, date_to_nullable=finder_date, league_id_nullable='00'
                 )
                 results = finder.get_data_frames()[0]
                 
@@ -374,51 +330,52 @@ def scan_schedule(days_to_check=7):
                             gid = clean_id_hard(r['GAME_ID'])
                             tid = clean_id_hard(r['TEAM_ID'])
                             pts = int(r['PTS'])
-                            key = f"{gid}_{tid}"
-                            score_map[key] = pts
+                            score_map[f"{gid}_{tid}"] = pts
                         except: continue
-                
-                def get_score(row, is_home):
-                    try:
-                        g_id = clean_id_hard(row['GAME_ID'])
-                        t_id = clean_id_hard(row['HOME_TEAM_ID']) if is_home else clean_id_hard(row['VISITOR_TEAM_ID'])
-                        key = f"{g_id}_{t_id}"
-                        return score_map.get(key, None)
-                    except: return None
+                    
+                    def get_score(row, is_home):
+                        try:
+                            g_id = clean_id_hard(row['GAME_ID'])
+                            t_id = clean_id_hard(row['HOME_TEAM_ID']) if is_home else clean_id_hard(row['VISITOR_TEAM_ID'])
+                            return score_map.get(f"{g_id}_{t_id}", None)
+                        except: return None
 
-                clean['PTS_HOME'] = clean.apply(lambda row: get_score(row, True), axis=1)
-                clean['PTS_AWAY'] = clean.apply(lambda row: get_score(row, False), axis=1)
-                
-                def force_status(row):
-                    if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']):
-                        return 3
-                    return row.get('GAME_STATUS_ID', 1)
+                    clean['PTS_HOME'] = clean.apply(lambda row: get_score(row, True), axis=1)
+                    clean['PTS_AWAY'] = clean.apply(lambda row: get_score(row, False), axis=1)
+                    
+                    def force_status(row):
+                        if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']): return 3
+                        return row.get('GAME_STATUS_ID', 1)
 
-                clean['GAME_STATUS_ID'] = clean.apply(force_status, axis=1)
-                day_games_list.append(clean)
-                
+                    clean['GAME_STATUS_ID'] = clean.apply(force_status, axis=1)
+                    found_days[str_date] = [clean]
+                    found_past = True
+                    break 
         except: pass
+        target_date -= timedelta(days=1)
         
-        if not hist_data.empty:
-            try:
-                manual_today = hist_data[(hist_data['Date'] == str_date) & (hist_data['Type'] == 'Manual')].copy()
-                if not manual_today.empty: 
-                    manual_today['GAME_STATUS_ID'] = 3 
-                    manual_today['PTS_HOME'] = 0
-                    manual_today['PTS_AWAY'] = 0
-                    mask_unfinished = manual_today['Result'].isna() | (manual_today['Result'] == "")
-                    manual_today.loc[mask_unfinished, 'GAME_STATUS_ID'] = 1
-                    day_games_list.append(manual_today)
-            except: pass
+    # MISSION FUTUR
+    target_date = datetime.now()
+    found_future = False
+    for _ in range(5):
+        str_date = target_date.strftime('%Y-%m-%d')
+        try:
+            board = scoreboardv2.ScoreboardV2(game_date=str_date)
+            raw = board.game_header.get_data_frame()
+            clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             
-        if day_games_list:
-            found_days[str_date] = day_games_list
-            count_found += 1
-            
-        if count_found >= 2: break 
-        check_date += timedelta(days=1)
-        
-    return found_days
+            if not clean.empty:
+                clean['PTS_HOME'] = None
+                clean['PTS_AWAY'] = None
+                clean['GAME_STATUS_ID'] = 1
+                if str_date in found_days: found_days[str_date].append(clean)
+                else: found_days[str_date] = [clean]
+                found_future = True
+                break
+        except: pass
+        target_date += timedelta(days=1)
+
+    return dict(sorted(found_days.items()))
 
 # --- INIT ---
 model, df_stats = load_resources()
@@ -443,8 +400,6 @@ with tab1:
             st.session_state['schedule_data'] = scan_schedule()
 
     schedule = st.session_state.get('schedule_data', {})
-    
-    # ICI : On lit le DF Cloud
     hist_df = load_history_from_supabase()
 
     if schedule:
@@ -462,7 +417,6 @@ with tab1:
                     h_id, a_id = 0, 0
                     h_name, a_name = "", ""
                     prob = None
-                    
                     status_id = row.get('GAME_STATUS_ID', 1) 
                     pts_h = row.get('PTS_HOME', None)
                     pts_a = row.get('PTS_AWAY', None)
@@ -471,10 +425,6 @@ with tab1:
                         h_id, a_id = row['HOME_TEAM_ID'], row['VISITOR_TEAM_ID']
                         if h_id in TEAMS_DB: h_name = TEAMS_DB[h_id]['full']
                         if a_id in TEAMS_DB: a_name = TEAMS_DB[a_id]['full']
-                    elif 'Home' in row:
-                        h_name, a_name = row['Home'], row['Away']
-                        h_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(h_name)), 0)
-                        a_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(a_name)), 0)
                     
                     mid = f"{h_name}vs{a_name}"
                     if mid in seen: continue
@@ -483,7 +433,6 @@ with tab1:
                     existing_bet = pd.DataFrame()
                     user_bet_val = None
                     user_reason_val = None
-                    real_winner_hist = None
                     
                     if not hist_df.empty:
                         existing_bet = hist_df[(hist_df['Date'] == date_key) & (hist_df['Home'] == h_name) & (hist_df['Away'] == a_name)]
@@ -491,8 +440,6 @@ with tab1:
                     if not existing_bet.empty:
                         saved_row = existing_bet.iloc[0]
                         winner = saved_row['Predicted_Winner']
-                        real_winner_hist = saved_row.get('Real_Winner', None)
-                        
                         if 'User_Prediction' in saved_row and pd.notna(saved_row['User_Prediction']):
                             user_bet_val = saved_row['User_Prediction']
                         if 'User_Reason' in saved_row and pd.notna(saved_row['User_Reason']):
@@ -509,33 +456,28 @@ with tab1:
                             if prob:
                                 w = h_name if prob > 0.5 else a_name
                                 c = prob*100 if prob > 0.5 else (1-prob)*100
-                                save_bet_auto_local(date_key, h_name, a_name, w, c) 
+                                save_bet_auto_cloud(date_key, h_name, a_name, w, c)
                                 st.rerun()
                     
                     if prob is not None and h_id != 0:
                         matches_to_display.append({
                             'h': h_name, 'a': a_name, 'hid': h_id, 'aid': a_id, 
                             'prob': prob, 'u': user_bet_val, 'reason': user_reason_val, 'mid': mid, 'd': date_key,
-                            'status': status_id, 'pts_h': pts_h, 'pts_a': pts_a,
-                            'real_winner': real_winner_hist 
+                            'status': status_id, 'pts_h': pts_h, 'pts_a': pts_a
                         })
 
-            # --- RENDER CARDS ---
+            # RENDER CARDS
             if matches_to_display:
                 cols = st.columns(2)
                 for i, m in enumerate(matches_to_display):
                     with cols[i % 2]:
                         with st.container():
-                            # LOGIQUE ETAT
                             try:
                                 score_h = int(float(m['pts_h'])) if pd.notna(m['pts_h']) else 0
                                 score_a = int(float(m['pts_a'])) if pd.notna(m['pts_a']) else 0
                             except: score_h, score_a = 0, 0
                             
-                            has_scores = (score_h > 0 and score_a > 0)
-                            has_winner_hist = (m['real_winner'] is not None and str(m['real_winner']) not in ['nan', 'None', '', 'En attente...'])
-                            
-                            is_finished = (m['status'] == 3) or has_scores or has_winner_hist
+                            is_finished = (m['status'] == 3) or (score_h > 0 and score_a > 0)
                             
                             inf_h = STANDINGS_DB.get(m['hid'], {'rec': '', 'strk': '', 'rank': ''})
                             inf_a = STANDINGS_DB.get(m['aid'], {'rec': '', 'strk': '', 'rank': ''})
@@ -548,83 +490,44 @@ with tab1:
                             has_voted = (m['u'] is not None and m['u'] != "")
                             is_editing = st.session_state['edit_modes'].get(m['mid'], False)
                             
-                            # HEADER AVEC SCORE
                             score_vs_block = "<div class='vs-text'>VS</div>"
                             if is_finished:
                                 h_cls = "score-win" if score_h > score_a else "score-loss"
                                 a_cls = "score-win" if score_a > score_h else "score-loss"
                                 score_vs_block = f"<div class='status-final'>FINAL</div>"
-                                
-                                d_score_h = score_h if has_scores else "?"
-                                d_score_a = score_a if has_scores else "?"
-                                
-                                html_teams = f"""
-                                <div class='card-header'>
-                                    <div class='team-box'>
-                                        <img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'>
-                                        <span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span>
-                                        <span class='score-val {h_cls}'>{d_score_h}</span>
-                                    </div>
-                                    {score_vs_block}
-                                    <div class='team-box'>
-                                        <img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'>
-                                        <span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span>
-                                        <span class='score-val {a_cls}'>{d_score_a}</span>
-                                    </div>
-                                </div>
-                                """
+                                d_score_h = score_h
+                                d_score_a = score_a
                             else:
-                                html_teams = f"""
-                                <div class='card-header'>
-                                    <div class='team-box'>
-                                        <img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'>
-                                        <span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span>
-                                        <span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span>
-                                    </div>
-                                    {score_vs_block}
-                                    <div class='team-box'>
-                                        <img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'>
-                                        <span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span>
-                                        <span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span>
-                                    </div>
-                                </div>
-                                """
-                            
-                            # PRONO
-                            if is_finished:
-                                real_winner = None
-                                if has_scores:
-                                    real_winner = m['h'] if score_h > score_a else m['a']
-                                elif has_winner_hist:
-                                    real_winner = m['real_winner']
-                                
-                                if real_winner:
-                                    ia_pred_name = m['h'] if is_h_win else m['a']
-                                    ia_res = "res-badge-win" if ia_pred_name == real_winner else "res-badge-loss"
-                                    ia_txt = "GAGNÉ" if ia_pred_name == real_winner else "PERDU"
-                                    
-                                    html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='{ia_res}'>{ia_txt}</span></div>"
-                                    
-                                    html_user = ""
-                                    if has_voted:
-                                        u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
-                                        u_win = (m['u'] == real_winner)
-                                        u_res = "res-badge-win" if u_win else "res-badge-loss"
-                                        u_txt = "GAGNÉ" if u_win else "PERDU"
-                                        html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span><span class='{u_res}'>{u_txt}</span></div></div>"
-                                    else:
-                                        html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span style='color:#666;'>-</span></div></div>"
-                                else:
-                                    html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span></div>"
-                                    html_user = ""
+                                d_score_h = "?"
+                                d_score_a = "?"
+                                h_cls = ""
+                                a_cls = ""
 
-                            else:
-                                html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
-                                html_user = ""
-                                if has_voted and not is_editing:
-                                    u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
-                                    reason_disp = f"<div class='reason-text'>({m['reason']})</div>" if m['reason'] else ""
-                                    html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div>{reason_disp}</div>"
+                            html_teams = f"""
+                            <div class='card-header'>
+                                <div class='team-box'>
+                                    <img src='https://cdn.nba.com/logos/nba/{m['hid']}/global/L/logo.svg' width='40'>
+                                    <span class='t-code'>{TEAMS_DB.get(m['hid'],{}).get('code', 'H')}</span>
+                                    <span class='score-val {h_cls}'>{d_score_h}</span>
+                                    <span class='t-meta'>#{inf_h['rank']} ({inf_h['rec']}) <b style='color:{c_sh}'>{inf_h['strk']}</b></span>
+                                </div>
+                                {score_vs_block}
+                                <div class='team-box'>
+                                    <img src='https://cdn.nba.com/logos/nba/{m['aid']}/global/L/logo.svg' width='40'>
+                                    <span class='t-code'>{TEAMS_DB.get(m['aid'],{}).get('code', 'A')}</span>
+                                    <span class='score-val {a_cls}'>{d_score_a}</span>
+                                    <span class='t-meta'>#{inf_a['rank']} ({inf_a['rec']}) <b style='color:{c_sa}'>{inf_a['strk']}</b></span>
+                                </div>
+                            </div>
+                            """
+                            
+                            html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
+                            
+                            html_user = ""
+                            if has_voted and not is_editing:
+                                u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
+                                reason_disp = f"<div class='reason-text'>({m['reason']})</div>" if m['reason'] else ""
+                                html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div>{reason_disp}</div>"
                             
                             st.markdown(f"<div class='unified-card'>{html_teams}<div class='prono-section'>{html_ia}{html_user}</div></div>", unsafe_allow_html=True)
                             
@@ -652,13 +555,14 @@ with tab1:
     elif st.session_state['schedule_data'] == {}:
         st.info("Aucun match.")
 
-    # 4. RESULTATS
+    # 4. RESULTATS (FIX TABLEAU BOTTOM)
     if not hist_df.empty:
         finished = hist_df[hist_df['Result'].isin(['GAGNE', 'PERDU'])].copy()
         
         if not finished.empty:
             st.write("")
             st.markdown("#### 🏁 Derniers Résultats")
+            
             c_res_main, _ = st.columns([1, 1]) 
             with c_res_main:
                 dates = sorted(finished['Date'].unique(), reverse=True)[:2]
@@ -691,16 +595,14 @@ with tab1:
                         st.markdown(html_table, unsafe_allow_html=True)
 
 # ==============================================================================
-# TAB 2 : STATS (V9.3 COMPACT)
+# TAB 2 : STATS
 # ==============================================================================
 with tab2:
     _, c_tab_center, _ = st.columns([1, 10, 1])
-    
     with c_tab_center:
-        # LECTURE CLOUD POUR STATS
-        df = hist_df.copy()
-        
-        if not df.empty:
+        # Check si DF vide
+        if not hist_df.empty:
+            df = hist_df.copy()
             finished_df = df[df['Result'].isin(['GAGNE', 'PERDU'])].copy()
             
             # 1. KPIs
@@ -738,9 +640,8 @@ with tab2:
                             ).properties(height=200).configure_axis(grid=False)
                             st.altair_chart(chart, use_container_width=True)
 
-            # 3. TABLEAU COMPACT (Style V8)
+            # 3. TABLEAU
             st.markdown("---")
-            
             df_disp = df.fillna("")
             df_disp['Date'] = pd.to_datetime(df_disp['Date'], errors='coerce')
             
@@ -751,11 +652,9 @@ with tab2:
                 icon = "✅" if res == 'GAGNE' else "❌"
                 return f"{icon} {code}"
 
-            # Noms courts pour compacité
             df_disp['Home'] = df_disp['Home'].apply(lambda x: get_short_code(get_clean_name(x)))
             df_disp['Away'] = df_disp['Away'].apply(lambda x: get_short_code(get_clean_name(x)))
             df_disp['Winner'] = df_disp['Real_Winner'].apply(lambda x: get_short_code(get_clean_name(x)) if x not in ["En attente...", ""] else "...")
-            
             df_disp['Prono IA'] = df_disp.apply(lambda x: merge_prono_res(x['Predicted_Winner'], x['Result']), axis=1)
             
             if 'User_Prediction' not in df_disp.columns: df_disp['User_Prediction'] = ""
@@ -769,8 +668,9 @@ with tab2:
             final_view = df_disp[cols].sort_index(ascending=False)
             final_view.insert(len(final_view.columns), "Del", False)
             
-            # NOTE: En mode Cloud, l'édition du tableau est désactivée car elle n'écrit pas dans Supabase
             st.dataframe(final_view, hide_index=True, use_container_width=True)
+        else:
+            st.info("Aucune donnée historique disponible dans le Cloud.")
 
 # ==============================================================================
 # TAB 3 : ADMIN
