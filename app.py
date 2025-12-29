@@ -16,14 +16,6 @@ from src import train_nba
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="NBA | AGENT PREDiKTOR", page_icon="🏀", layout="wide")
 
-# --- SIDEBAR (CACHE CONTROL) ---
-with st.sidebar:
-    st.image(APP_LOGO, width=100) if 'APP_LOGO' in locals() else st.title("🏀")
-    st.markdown("### Contrôle")
-    if st.button("🔄 Rafraîchir Données Cloud", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
 # --- SUPABASE CREDENTIALS ---
 try:
     if "supabase" in st.secrets:
@@ -42,28 +34,13 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("🚨 ERREUR : Clés Supabase introuvables.")
     st.stop()
 
-# --- CSS (DESIGN V9 UNIFIED) ---
+# --- CSS ---
 st.markdown("""
 <style>
     .stApp { background-color: #262730 !important; }
     header[data-testid="stHeader"] { background-color: #262730 !important; }
-    div[data-testid="stTabs"] {
-        position: sticky;
-        top: 2.8rem;
-        background-color: #262730 !important;
-        z-index: 999;
-        padding-top: 10px;
-        margin-top: 0px;
-        border-bottom: 1px solid #444;
-    }
-    .unified-card {
-        background-color: #262730;
-        border: 1px solid #444;
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 0px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-    }
+    div[data-testid="stTabs"] { position: sticky; top: 2.8rem; background-color: #262730 !important; z-index: 999; padding-top: 10px; margin-top: 0px; border-bottom: 1px solid #444; }
+    .unified-card { background-color: #262730; border: 1px solid #444; border-radius: 12px; padding: 15px; margin-bottom: 0px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
     .stat-box { text-align: center; padding: 10px; border-right: 1px solid rgba(255,255,255,0.1); }
     .stat-box:last-child { border-right: none; }
     .stat-label { font-size: 0.8em; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
@@ -127,7 +104,6 @@ REASONS_LIST = [
 
 # --- 3. FONCTIONS ---
 
-# --- SUPABASE FUNCTIONS ---
 @st.cache_data(ttl=60)
 def load_history_from_supabase():
     headers = {
@@ -195,7 +171,6 @@ def save_bet_manual_cloud(date, h_name, a_name, w_name, conf):
             load_history_from_supabase.clear() 
     except: pass
 
-# --- FONCTIONS LOCALES ---
 def get_teams_dict():
     nba_teams = teams.get_teams()
     return {t['id']: {'full': t['full_name'], 'code': t['abbreviation'], 'nick': t['nickname']} for t in nba_teams}
@@ -238,15 +213,6 @@ def show_logo(team_id, width=50):
     if os.path.exists(path): st.image(path, width=width)
     else: st.write("🏀")
 
-def run_script(path, desc, container):
-    container.info(f"⚙️ {desc}...", icon="⏳")
-    try:
-        subprocess.run([sys.executable, path], check=True, capture_output=True, text=True)
-        return True
-    except subprocess.CalledProcessError:
-        container.error(f"Erreur {desc}")
-        return False
-
 def get_clean_name(name_input):
     name_str = str(name_input)
     parts = name_str.split(' ')
@@ -281,15 +247,26 @@ def get_prediction(model, df_history, h_id, a_id):
     }])
     return model.predict_proba(row)[0][1], {'rh': rh, 'ra': ra}
 
-def save_bet_auto_local(date, h_name, a_name, w_name, conf):
-    if not os.path.exists(HISTORY_FILE): 
-        with open(HISTORY_FILE, 'w') as f: f.write("Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Prediction,User_Result,User_Reason\n")
+def save_bet_auto_cloud(date, h_name, a_name, w_name, conf):
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    url = f"{SUPABASE_URL}/rest/v1/bets_history"
+    payload = {
+        "game_date": date,
+        "home_team": h_name,
+        "away_team": a_name,
+        "predicted_winner": w_name,
+        "confidence": f"{conf:.1f}%",
+        "type": "Auto"
+    }
     try:
-        df = pd.read_csv(HISTORY_FILE)
-        if not df[(df['Date'] == date) & (df['Home'] == h_name) & (df['Away'] == a_name)].empty: return
+        requests.post(url, headers=headers, json=payload)
+        load_history_from_supabase.clear()
     except: pass
-    with open(HISTORY_FILE, 'a') as f:
-        f.write(f"\n{date},{h_name},{a_name},{w_name},{conf:.1f}%,Manual,,,,")
 
 def get_last_mod(filepath):
     if os.path.exists(filepath): return datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%d/%m %H:%M')
@@ -299,25 +276,26 @@ def clean_id_hard(val):
     try: return str(int(float(val))).lstrip('0')
     except: return str(val).lstrip('0')
 
-# --- SCANNER V10.4 (SEARCH & STOP) ---
-def scan_schedule(days_to_check=7):
+# --- SCANNER V10.4 (SEEKER LOGIC) ---
+def scan_schedule():
     found_days = {}
     
     # 1. Chargement Historique Cloud
     hist_data = load_history_from_supabase()
     
-    # MISSION PASSÉ
+    # MISSION PASSÉ (Résultats)
     target_date = datetime.now() - timedelta(days=1)
-    found_past = False
-    for _ in range(5):
+    for _ in range(5): # Recule max 5 jours
         str_date = target_date.strftime('%Y-%m-%d')
         finder_date = target_date.strftime('%m/%d/%Y')
         try:
+            # Squelette
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
             raw = board.game_header.get_data_frame()
             clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             
             if not clean.empty:
+                # Finder pour Scores
                 finder = leaguegamefinder.LeagueGameFinder(
                     date_from_nullable=finder_date, date_to_nullable=finder_date, league_id_nullable='00'
                 )
@@ -332,32 +310,34 @@ def scan_schedule(days_to_check=7):
                             pts = int(r['PTS'])
                             score_map[f"{gid}_{tid}"] = pts
                         except: continue
-                    
-                    def get_score(row, is_home):
-                        try:
-                            g_id = clean_id_hard(row['GAME_ID'])
-                            t_id = clean_id_hard(row['HOME_TEAM_ID']) if is_home else clean_id_hard(row['VISITOR_TEAM_ID'])
-                            return score_map.get(f"{g_id}_{t_id}", None)
-                        except: return None
+                
+                def get_score(row, is_home):
+                    try:
+                        g_id = clean_id_hard(row['GAME_ID'])
+                        t_id = clean_id_hard(row['HOME_TEAM_ID']) if is_home else clean_id_hard(row['VISITOR_TEAM_ID'])
+                        return score_map.get(f"{g_id}_{t_id}", None)
+                    except: return None
 
-                    clean['PTS_HOME'] = clean.apply(lambda row: get_score(row, True), axis=1)
-                    clean['PTS_AWAY'] = clean.apply(lambda row: get_score(row, False), axis=1)
-                    
-                    def force_status(row):
-                        if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']): return 3
-                        return row.get('GAME_STATUS_ID', 1)
+                clean['PTS_HOME'] = clean.apply(lambda row: get_score(row, True), axis=1)
+                clean['PTS_AWAY'] = clean.apply(lambda row: get_score(row, False), axis=1)
+                
+                def force_status(row):
+                    if pd.notna(row['PTS_HOME']) and pd.notna(row['PTS_AWAY']): return 3
+                    return row.get('GAME_STATUS_ID', 1)
 
-                    clean['GAME_STATUS_ID'] = clean.apply(force_status, axis=1)
+                clean['GAME_STATUS_ID'] = clean.apply(force_status, axis=1)
+                
+                # Check si on a des résultats "finis" ou "avec scores"
+                has_finished = clean[clean['GAME_STATUS_ID'] == 3].shape[0] > 0
+                if has_finished:
                     found_days[str_date] = [clean]
-                    found_past = True
-                    break 
+                    break # STOP, on a trouvé la dernière soirée jouée
         except: pass
         target_date -= timedelta(days=1)
         
-    # MISSION FUTUR
+    # MISSION FUTUR (Affiches)
     target_date = datetime.now()
-    found_future = False
-    for _ in range(5):
+    for _ in range(5): # Avance max 5 jours
         str_date = target_date.strftime('%Y-%m-%d')
         try:
             board = scoreboardv2.ScoreboardV2(game_date=str_date)
@@ -365,15 +345,32 @@ def scan_schedule(days_to_check=7):
             clean = raw.dropna(subset=['HOME_TEAM_ID', 'VISITOR_TEAM_ID'])
             
             if not clean.empty:
+                # On prépare pour l'affichage
                 clean['PTS_HOME'] = None
                 clean['PTS_AWAY'] = None
-                clean['GAME_STATUS_ID'] = 1
+                clean['GAME_STATUS_ID'] = 1 # Futur
+                
                 if str_date in found_days: found_days[str_date].append(clean)
                 else: found_days[str_date] = [clean]
-                found_future = True
-                break
+                break # STOP, on a trouvé la prochaine soirée
         except: pass
         target_date += timedelta(days=1)
+    
+    # AJOUT MANUEL (Si existe dans hist pour ces dates trouvées)
+    if not hist_data.empty:
+        for d in found_days.keys():
+            try:
+                manual = hist_data[(hist_data['Date'] == d) & (hist_data['Type'] == 'Manual')].copy()
+                if not manual.empty:
+                    # Simule structure
+                    manual['GAME_STATUS_ID'] = 1
+                    manual['PTS_HOME'] = None
+                    manual['PTS_AWAY'] = None
+                    # Si resultat connu
+                    mask_done = manual['Result'].isin(['GAGNE', 'PERDU'])
+                    manual.loc[mask_done, 'GAME_STATUS_ID'] = 3
+                    found_days[d].append(manual)
+            except: pass
 
     return dict(sorted(found_days.items()))
 
@@ -425,11 +422,16 @@ with tab1:
                         h_id, a_id = row['HOME_TEAM_ID'], row['VISITOR_TEAM_ID']
                         if h_id in TEAMS_DB: h_name = TEAMS_DB[h_id]['full']
                         if a_id in TEAMS_DB: a_name = TEAMS_DB[a_id]['full']
+                    elif 'Home' in row:
+                        h_name, a_name = row['Home'], row['Away']
+                        h_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(h_name)), 0)
+                        a_id = next((k for k, v in TEAMS_DB.items() if v['full'] == get_clean_name(a_name)), 0)
                     
                     mid = f"{h_name}vs{a_name}"
                     if mid in seen: continue
                     seen.append(mid)
 
+                    # LOGIQUE HYBRIDE: Check Cloud History pour vote/prono existant
                     existing_bet = pd.DataFrame()
                     user_bet_val = None
                     user_reason_val = None
@@ -451,13 +453,14 @@ with tab1:
                             prob = conf_val if is_h_win else (1-conf_val)
                         except: prob = None
                     else:
+                        # Si pas dans l'historique, on calcule et ON SAUVEGARDE SUR CLOUD
                         if h_id != 0:
                             prob, det = get_prediction(model, df_stats, h_id, a_id)
                             if prob:
                                 w = h_name if prob > 0.5 else a_name
                                 c = prob*100 if prob > 0.5 else (1-prob)*100
                                 save_bet_auto_cloud(date_key, h_name, a_name, w, c)
-                                st.rerun()
+                                st.rerun() # Refresh pour afficher
                     
                     if prob is not None and h_id != 0:
                         matches_to_display.append({
@@ -521,13 +524,29 @@ with tab1:
                             </div>
                             """
                             
-                            html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
-                            
-                            html_user = ""
-                            if has_voted and not is_editing:
-                                u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
-                                reason_disp = f"<div class='reason-text'>({m['reason']})</div>" if m['reason'] else ""
-                                html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div>{reason_disp}</div>"
+                            if is_finished:
+                                real_winner = m['h'] if score_h > score_a else m['a']
+                                ia_pred_name = m['h'] if is_h_win else m['a']
+                                ia_res = "res-badge-win" if ia_pred_name == real_winner else "res-badge-loss"
+                                ia_txt = "GAGNÉ" if ia_pred_name == real_winner else "PERDU"
+                                html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='{ia_res}'>{ia_txt}</span></div>"
+                                
+                                html_user = ""
+                                if has_voted:
+                                    u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
+                                    u_win = (m['u'] == real_winner)
+                                    u_res = "res-badge-win" if u_win else "res-badge-loss"
+                                    u_txt = "GAGNÉ" if u_win else "PERDU"
+                                    html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span><span class='{u_res}'>{u_txt}</span></div></div>"
+                                else:
+                                    html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span style='color:#666;'>-</span></div></div>"
+                            else:
+                                html_ia = f"<div class='prono-row'><span class='p-lbl'>IA</span><span class='p-val'>{ia_code}</span><span class='p-conf'>{ia_conf:.0f}%</span></div>"
+                                html_user = ""
+                                if has_voted and not is_editing:
+                                    u_code = TEAMS_DB.get(next((k for k,v in TEAMS_DB.items() if v['full'] == m['u']),0), {}).get('code', m['u'])
+                                    reason_disp = f"<div class='reason-text'>({m['reason']})</div>" if m['reason'] else ""
+                                    html_user = f"<div class='user-choice-row'><div class='prono-row' style='justify-content:center;'><span class='p-lbl'>IK</span><span class='p-val'>{u_code}</span></div>{reason_disp}</div>"
                             
                             st.markdown(f"<div class='unified-card'>{html_teams}<div class='prono-section'>{html_ia}{html_user}</div></div>", unsafe_allow_html=True)
                             
@@ -555,14 +574,13 @@ with tab1:
     elif st.session_state['schedule_data'] == {}:
         st.info("Aucun match.")
 
-    # 4. RESULTATS (FIX TABLEAU BOTTOM)
+    # 4. RESULTATS
     if not hist_df.empty:
         finished = hist_df[hist_df['Result'].isin(['GAGNE', 'PERDU'])].copy()
         
         if not finished.empty:
             st.write("")
             st.markdown("#### 🏁 Derniers Résultats")
-            
             c_res_main, _ = st.columns([1, 1]) 
             with c_res_main:
                 dates = sorted(finished['Date'].unique(), reverse=True)[:2]
@@ -595,14 +613,16 @@ with tab1:
                         st.markdown(html_table, unsafe_allow_html=True)
 
 # ==============================================================================
-# TAB 2 : STATS
+# TAB 2 : STATS (V9.3 COMPACT)
 # ==============================================================================
 with tab2:
     _, c_tab_center, _ = st.columns([1, 10, 1])
+    
     with c_tab_center:
-        # Check si DF vide
-        if not hist_df.empty:
-            df = hist_df.copy()
+        # LECTURE CLOUD POUR STATS
+        df = hist_df.copy()
+        
+        if not df.empty:
             finished_df = df[df['Result'].isin(['GAGNE', 'PERDU'])].copy()
             
             # 1. KPIs
@@ -640,8 +660,9 @@ with tab2:
                             ).properties(height=200).configure_axis(grid=False)
                             st.altair_chart(chart, use_container_width=True)
 
-            # 3. TABLEAU
+            # 3. TABLEAU COMPACT (Style V8)
             st.markdown("---")
+            
             df_disp = df.fillna("")
             df_disp['Date'] = pd.to_datetime(df_disp['Date'], errors='coerce')
             
@@ -652,9 +673,11 @@ with tab2:
                 icon = "✅" if res == 'GAGNE' else "❌"
                 return f"{icon} {code}"
 
+            # Noms courts pour compacité
             df_disp['Home'] = df_disp['Home'].apply(lambda x: get_short_code(get_clean_name(x)))
             df_disp['Away'] = df_disp['Away'].apply(lambda x: get_short_code(get_clean_name(x)))
             df_disp['Winner'] = df_disp['Real_Winner'].apply(lambda x: get_short_code(get_clean_name(x)) if x not in ["En attente...", ""] else "...")
+            
             df_disp['Prono IA'] = df_disp.apply(lambda x: merge_prono_res(x['Predicted_Winner'], x['Result']), axis=1)
             
             if 'User_Prediction' not in df_disp.columns: df_disp['User_Prediction'] = ""
@@ -668,6 +691,7 @@ with tab2:
             final_view = df_disp[cols].sort_index(ascending=False)
             final_view.insert(len(final_view.columns), "Del", False)
             
+            # NOTE: En mode Cloud, l'édition du tableau est désactivée car elle n'écrit pas dans Supabase
             st.dataframe(final_view, hide_index=True, use_container_width=True)
         else:
             st.info("Aucune donnée historique disponible dans le Cloud.")
@@ -720,7 +744,6 @@ with tab3:
                 win_name = TEAMS_DB[h_id]['full'] if prob > 0.5 else TEAMS_DB[a_id]['full']
                 conf = prob*100 if prob > 0.5 else (1-prob)*100
                 st.success(f"Vainqueur : {win_name} ({conf:.1f}%)")
-                # DOUBLE ECRITURE : Local (pour le cerveau) + Cloud (pour l'affichage)
                 save_bet_auto_local(dt.strftime('%Y-%m-%d'), TEAMS_DB[h_id]['full'], TEAMS_DB[a_id]['full'], win_name, conf)
                 save_bet_manual_cloud(dt.strftime('%Y-%m-%d'), TEAMS_DB[h_id]['full'], TEAMS_DB[a_id]['full'], win_name, conf)
                 

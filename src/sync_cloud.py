@@ -3,34 +3,52 @@ import requests
 import json
 import os
 import numpy as np
-from dotenv import load_dotenv # <--- AJOUT
+from dotenv import load_dotenv
 
-# Chargement des secrets depuis .env
+# Chargement des secrets
 load_dotenv()
 
-# --- CONFIGURATION SECURISEE ---
+# --- CONFIGURATION ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 CSV_PATH = "data/bets_history.csv"
 
 def sync_to_supabase():
-    print("--- SYNCHRONISATION CLOUD (V2) ---")
+    print("--- SYNCHRONISATION VERS SUPABASE (CLEAN & DEDUP) ---")
     
-    if not os.path.exists(CSV_PATH):
-        print("[SKIP] Pas de CSV trouvé.")
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("[ERREUR] Clés manquantes.")
         return
 
-    df = pd.read_csv(CSV_PATH)
-    # Nettoyage : NaN devient None (null)
-    df = df.replace({np.nan: None})
-    
-    # On prend les 100 derniers matchs pour être large et mettre à jour les types
-    df_recent = df.tail(100) 
+    if not os.path.exists(CSV_PATH):
+        print(f"[ERREUR] CSV introuvable : {CSV_PATH}")
+        return
 
+    # 1. Lecture
+    try:
+        df = pd.read_csv(CSV_PATH)
+        count_before = len(df)
+        
+        # 2. NETTOYAGE DOUBLONS (CRITIQUE)
+        # On garde la dernière version de chaque match (Date + Home + Away)
+        df = df.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last')
+        count_after = len(df)
+        
+        if count_before > count_after:
+            print(f"[INFO] {count_before - count_after} doublons supprimés du CSV avant envoi.")
+            # Optionnel : Sauvegarder le CSV propre
+            df.to_csv(CSV_PATH, index=False)
+
+        df = df.replace({np.nan: None})
+        
+    except Exception as e:
+        print(f"[ERREUR] Traitement CSV : {e}")
+        return
+
+    # 3. Préparation des données (Tout l'historique propre)
     rows = []
-    for _, row in df_recent.iterrows():
-        # Construction de l'objet JSON complet
-        rows.append({
+    for _, row in df.iterrows():
+        row_data = {
             "game_date": row['Date'],
             "home_team": row['Home'],
             "away_team": row['Away'],
@@ -41,10 +59,11 @@ def sync_to_supabase():
             "user_prediction": row.get('User_Prediction'),
             "user_result": row.get('User_Result'),
             "user_reason": row.get('User_Reason'),
-            "type": row.get('Type', 'Auto') # <--- AJOUT DE LA COLONNE TYPE
-        })
+            "type": row.get('Type', 'Auto')
+        }
+        rows.append(row_data)
 
-    # Endpoint avec option UPSERT (Mise à jour si conflit sur la clé unique)
+    # 4. Envoi (Upsert)
     endpoint = f"{SUPABASE_URL}/rest/v1/bets_history?on_conflict=game_date,home_team,away_team"
     
     headers = {
@@ -55,13 +74,13 @@ def sync_to_supabase():
     }
 
     try:
-        print(f"Envoi de {len(rows)} lignes...")
+        print(f"[INFO] Envoi de {len(rows)} lignes uniques...")
         r = requests.post(endpoint, headers=headers, json=rows)
         
         if r.status_code in [200, 201]:
-            print(f"[OK] Synchronisation réussie (Types mis à jour).")
+            print(f"[SUCCES] Supabase synchronisé ({len(rows)} matchs) !")
         else:
-            print(f"[ERREUR] {r.status_code} - {r.text}")
+            print(f"[ERREUR API] {r.status_code} - {r.text}")
             
     except Exception as e:
         print(f"[CRASH] {e}")
