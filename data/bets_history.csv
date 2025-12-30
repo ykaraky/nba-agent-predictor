@@ -108,4 +108,4 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-29,New Orleans Pelicans,New York Knicks,New Orleans Pelicans,50.0%,Auto,PERDU,New York Knicks,New York Knicks,GAGNE,Intuition / Feeling
 2025-12-29,Oklahoma City Thunder,Atlanta Hawks,Oklahoma City Thunder,50.0%,Auto,GAGNE,Oklahoma City Thunder,Oklahoma City Thunder,GAGNE,Domicile / Extérieur
 2025-12-29,San Antonio Spurs,Cleveland Cavaliers,San Antonio Spurs,50.0%,Auto,PERDU,Cleveland Cavaliers,San Antonio Spurs,PERDU,Série / Forme du moment
-2025-12-29,Portland Trail Blazers,Dallas Mavericks,Portland Trail Blazers,50.0%,Auto,,,Dallas Mavericks,,Intuition / Feeling
+2025-12-29,Portland Trail Blazers,Dallas Mavericks,Portland Trail Blazers,50.0%,Auto,GAGNE,Portland Trail Blazers,Dallas Mavericks,PERDU,Intuition / Feeling
