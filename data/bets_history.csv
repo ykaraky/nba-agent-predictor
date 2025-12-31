@@ -109,9 +109,9 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-29,Washington Wizards,Phoenix Suns,Washington Wizards,50.0%,Auto,PERDU,Phoenix Suns,Washington Wizards,PERDU,Intuition / Feeling
 2025-12-29,Charlotte Hornets,Milwaukee Bucks,Charlotte Hornets,50.0%,Auto,PERDU,Milwaukee Bucks,Charlotte Hornets,PERDU,Domicile / Extérieur
 2025-12-29,Toronto Raptors,Orlando Magic,Toronto Raptors,50.0%,Auto,GAGNE,Toronto Raptors,Toronto Raptors,GAGNE,Intuition / Feeling
-2025-12-30,Memphis Grizzlies,Philadelphia 76ers,Memphis Grizzlies,65.8%,Auto,,,Philadelphia 76ers,,Analyse Stats
+2025-12-30,Memphis Grizzlies,Philadelphia 76ers,Memphis Grizzlies,65.8%,Auto,PERDU,Philadelphia 76ers,Philadelphia 76ers,GAGNE,Analyse Stats
 2025-12-30,Los Angeles Lakers,Detroit Pistons,Detroit Pistons,58.4%,Auto,,,Los Angeles Lakers,,Intuition / Feeling
-2025-12-30,Utah Jazz,Boston Celtics,Utah Jazz,51.8%,Auto,,,Boston Celtics,,Intuition / Feeling
+2025-12-30,Utah Jazz,Boston Celtics,Utah Jazz,51.8%,Auto,PERDU,Boston Celtics,Boston Celtics,GAGNE,Intuition / Feeling
 2025-12-30,Los Angeles Clippers,Sacramento Kings,Los Angeles Clippers,64.5%,Auto,,,Los Angeles Clippers,,Intuition / Feeling
 2025-12-31,San Antonio Spurs,New York Knicks,San Antonio Spurs,68.4%,Auto,,,,,
 2025-12-31,Toronto Raptors,Denver Nuggets,Denver Nuggets,60.2%,Auto,,,,,
