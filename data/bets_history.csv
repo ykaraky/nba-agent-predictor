@@ -110,15 +110,15 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-29,Charlotte Hornets,Milwaukee Bucks,Charlotte Hornets,50.0%,Auto,PERDU,Milwaukee Bucks,Charlotte Hornets,PERDU,Domicile / Extérieur
 2025-12-29,Toronto Raptors,Orlando Magic,Toronto Raptors,50.0%,Auto,GAGNE,Toronto Raptors,Toronto Raptors,GAGNE,Intuition / Feeling
 2025-12-30,Memphis Grizzlies,Philadelphia 76ers,Memphis Grizzlies,65.8%,Auto,PERDU,Philadelphia 76ers,Philadelphia 76ers,GAGNE,Analyse Stats
-2025-12-30,Los Angeles Lakers,Detroit Pistons,Detroit Pistons,58.4%,Auto,,,Los Angeles Lakers,,Intuition / Feeling
+2025-12-30,Los Angeles Lakers,Detroit Pistons,Detroit Pistons,58.4%,Auto,GAGNE,Detroit Pistons,Los Angeles Lakers,PERDU,Intuition / Feeling
 2025-12-30,Utah Jazz,Boston Celtics,Utah Jazz,51.8%,Auto,PERDU,Boston Celtics,Boston Celtics,GAGNE,Intuition / Feeling
-2025-12-30,Los Angeles Clippers,Sacramento Kings,Los Angeles Clippers,64.5%,Auto,,,Los Angeles Clippers,,Intuition / Feeling
-2025-12-31,San Antonio Spurs,New York Knicks,San Antonio Spurs,68.4%,Auto,,,,,
-2025-12-31,Toronto Raptors,Denver Nuggets,Denver Nuggets,60.2%,Auto,,,,,
-2025-12-31,Chicago Bulls,New Orleans Pelicans,Chicago Bulls,68.9%,Auto,,,,,
-2025-12-31,Milwaukee Bucks,Washington Wizards,Milwaukee Bucks,56.8%,Auto,,,,,
-2025-12-31,Indiana Pacers,Orlando Magic,Orlando Magic,50.7%,Auto,,,,,
-2025-12-31,Atlanta Hawks,Minnesota Timberwolves,Atlanta Hawks,63.7%,Auto,,,,,
-2025-12-31,Charlotte Hornets,Golden State Warriors,Charlotte Hornets,73.2%,Auto,,,,,
-2025-12-31,Cleveland Cavaliers,Phoenix Suns,Cleveland Cavaliers,56.2%,Auto,,,,,
-2025-12-31,Oklahoma City Thunder,Portland Trail Blazers,Oklahoma City Thunder,71.2%,Auto,,,,,
+2025-12-30,Los Angeles Clippers,Sacramento Kings,Los Angeles Clippers,64.5%,Auto,GAGNE,Los Angeles Clippers,Los Angeles Clippers,GAGNE,Intuition / Feeling
+2025-12-31,San Antonio Spurs,New York Knicks,San Antonio Spurs,68.4%,Auto,,,San Antonio Spurs,,Intuition / Feeling
+2025-12-31,Toronto Raptors,Denver Nuggets,Denver Nuggets,60.2%,Auto,,,Toronto Raptors,,Blessure / Effectif
+2025-12-31,Chicago Bulls,New Orleans Pelicans,Chicago Bulls,68.9%,Auto,,,New Orleans Pelicans,,Blessure / Effectif
+2025-12-31,Milwaukee Bucks,Washington Wizards,Milwaukee Bucks,56.8%,Auto,,,Milwaukee Bucks,,Série / Forme du moment
+2025-12-31,Indiana Pacers,Orlando Magic,Orlando Magic,50.7%,Auto,,,Orlando Magic,,Analyse Stats
+2025-12-31,Atlanta Hawks,Minnesota Timberwolves,Atlanta Hawks,63.7%,Auto,,,Atlanta Hawks,,Domicile / Extérieur
+2025-12-31,Charlotte Hornets,Golden State Warriors,Charlotte Hornets,73.2%,Auto,,,Golden State Warriors,,Analyse Stats
+2025-12-31,Cleveland Cavaliers,Phoenix Suns,Cleveland Cavaliers,56.2%,Auto,,,Phoenix Suns,,Série / Forme du moment
+2025-12-31,Oklahoma City Thunder,Portland Trail Blazers,Oklahoma City Thunder,71.2%,Auto,,,Oklahoma City Thunder,,Analyse Stats
