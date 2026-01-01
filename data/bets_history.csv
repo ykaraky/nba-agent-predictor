@@ -122,8 +122,8 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2025-12-31,Atlanta Hawks,Minnesota Timberwolves,Atlanta Hawks,63.7%,Auto,GAGNE,Atlanta Hawks,Atlanta Hawks,GAGNE,Domicile / Extérieur
 2025-12-31,Charlotte Hornets,Golden State Warriors,Charlotte Hornets,73.2%,Auto,PERDU,Golden State Warriors,Golden State Warriors,GAGNE,Analyse Stats
 2025-12-31,Cleveland Cavaliers,Phoenix Suns,Cleveland Cavaliers,56.2%,Auto,GAGNE,Cleveland Cavaliers,Cleveland Cavaliers,GAGNE,Domicile / Extérieur
-2026-01-01,Dallas Mavericks,Philadelphia 76ers,Dallas Mavericks,65.0%,Auto,,,,,
-2026-01-01,Sacramento Kings,Boston Celtics,Boston Celtics,68.8%,Auto,,,,,
-2026-01-01,Brooklyn Nets,Houston Rockets,Houston Rockets,50.2%,Auto,,,,,
-2026-01-01,Detroit Pistons,Miami Heat,Detroit Pistons,55.8%,Auto,,,,,
-2026-01-01,Los Angeles Clippers,Utah Jazz,Los Angeles Clippers,57.6%,Auto,,,,,
+2026-01-01,Dallas Mavericks,Philadelphia 76ers,Dallas Mavericks,65.0%,Auto,,,Dallas Mavericks,,Domicile / Extérieur
+2026-01-01,Sacramento Kings,Boston Celtics,Boston Celtics,68.8%,Auto,,,Sacramento Kings,,Intuition / Feeling
+2026-01-01,Brooklyn Nets,Houston Rockets,Houston Rockets,50.2%,Auto,,,Houston Rockets,,Série / Forme du moment
+2026-01-01,Detroit Pistons,Miami Heat,Detroit Pistons,55.8%,Auto,,,Detroit Pistons,,Domicile / Extérieur
+2026-01-01,Los Angeles Clippers,Utah Jazz,Los Angeles Clippers,57.6%,Auto,,,Los Angeles Clippers,,Domicile / Extérieur
