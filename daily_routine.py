@@ -57,6 +57,10 @@ run_step('src/verify_bets.py', "Vérification Paris")
 # On le fait avant Git pour être sûr que la base est à jour pour les apps externes
 run_step('src/sync_cloud.py', "Synchro Supabase")
 
+# 4b. NOUVEAU : Sync des scores et classements officiels NBA
+run_step('portable_sync_nba_games.py', "Sync Scores NBA → Supabase")
+run_step('portable_sync_standings.py', "Sync Classements → Supabase")
+
 # 5. Sauvegarde du code et du CSV sur GitHub
 run_git_sync()
 
