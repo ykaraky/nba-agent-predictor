@@ -138,7 +138,7 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2026-01-02,Phoenix Suns,Sacramento Kings,Phoenix Suns,61.9%,Auto,GAGNE,Phoenix Suns,Phoenix Suns,GAGNE,Série / Forme du moment
 2026-01-02,Indiana Pacers,San Antonio Spurs,San Antonio Spurs,76.4%,Auto,GAGNE,San Antonio Spurs,San Antonio Spurs,GAGNE,Série / Forme du moment
 2026-01-03,Golden State Warriors,Utah Jazz,Utah Jazz,61.0%,Auto,,,,,
-2026-01-03,Miami Heat,Minnesota Timberwolves,Minnesota Timberwolves,60.6%,Auto,,,,,
+2026-01-03,Miami Heat,Minnesota Timberwolves,Minnesota Timberwolves,60.6%,Auto,GAGNE,Minnesota Timberwolves,,,
 2026-01-03,New York Knicks,Philadelphia 76ers,Philadelphia 76ers,67.1%,Auto,,,,,
 2026-01-03,Toronto Raptors,Atlanta Hawks,Atlanta Hawks,55.9%,Auto,,,,,
 2026-01-03,Chicago Bulls,Charlotte Hornets,Chicago Bulls,53.8%,Auto,,,,,
