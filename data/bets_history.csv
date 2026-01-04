@@ -137,14 +137,14 @@ Date,Home,Away,Predicted_Winner,Confidence,Type,Result,Real_Winner,User_Predicti
 2026-01-02,New York Knicks,Atlanta Hawks,New York Knicks,50.4%,Auto,PERDU,Atlanta Hawks,New York Knicks,PERDU,Domicile / Extérieur
 2026-01-02,Los Angeles Lakers,Memphis Grizzlies,Memphis Grizzlies,64.6%,Auto,PERDU,Los Angeles Lakers,Los Angeles Lakers,GAGNE,Domicile / Extérieur
 2026-01-02,Golden State Warriors,Oklahoma City Thunder,Oklahoma City Thunder,65.9%,Auto,GAGNE,Oklahoma City Thunder,Oklahoma City Thunder,GAGNE,Série / Forme du moment
-2026-01-03,Los Angeles Clippers,Boston Celtics,Los Angeles Clippers,58.5%,Auto,,,,,
-2026-01-03,Dallas Mavericks,Houston Rockets,Houston Rockets,57.4%,Auto,,,,,
-2026-01-03,Chicago Bulls,Charlotte Hornets,Chicago Bulls,53.8%,Auto,,,,,
-2026-01-03,San Antonio Spurs,Portland Trail Blazers,San Antonio Spurs,78.4%,Auto,,,,,
-2026-01-03,New York Knicks,Philadelphia 76ers,Philadelphia 76ers,67.1%,Auto,,,,,
+2026-01-03,Los Angeles Clippers,Boston Celtics,Los Angeles Clippers,58.5%,Auto,PERDU,Boston Celtics,,,
+2026-01-03,Dallas Mavericks,Houston Rockets,Houston Rockets,57.4%,Auto,PERDU,Dallas Mavericks,,,
+2026-01-03,Chicago Bulls,Charlotte Hornets,Chicago Bulls,53.8%,Auto,PERDU,Charlotte Hornets,,,
+2026-01-03,San Antonio Spurs,Portland Trail Blazers,San Antonio Spurs,78.4%,Auto,PERDU,Portland Trail Blazers,,,
+2026-01-03,New York Knicks,Philadelphia 76ers,Philadelphia 76ers,67.1%,Auto,GAGNE,Philadelphia 76ers,,,
 2026-01-03,Miami Heat,Minnesota Timberwolves,Minnesota Timberwolves,60.6%,Auto,GAGNE,Minnesota Timberwolves,,,
-2026-01-03,Golden State Warriors,Utah Jazz,Utah Jazz,61.0%,Auto,,,,,
-2026-01-03,Toronto Raptors,Atlanta Hawks,Atlanta Hawks,55.9%,Auto,,,,,
+2026-01-03,Golden State Warriors,Utah Jazz,Utah Jazz,61.0%,Auto,PERDU,Golden State Warriors,,,
+2026-01-03,Toronto Raptors,Atlanta Hawks,Atlanta Hawks,55.9%,Auto,PERDU,Toronto Raptors,,,
 2026-01-04,Sacramento Kings,Milwaukee Bucks,Sacramento Kings,68.9%,Auto,,,,,
 2026-01-04,Cleveland Cavaliers,Detroit Pistons,Cleveland Cavaliers,65.5%,Auto,,,,,
 2026-01-04,Orlando Magic,Indiana Pacers,Orlando Magic,68.2%,Auto,,,,,
