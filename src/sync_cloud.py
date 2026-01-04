@@ -34,6 +34,12 @@ def sync_to_supabase():
         df = df.drop_duplicates(subset=['Date', 'Home', 'Away'], keep='last')
         count_after = len(df)
         
+        # DELTA OPTIMIZATION: Only sync the last 100 items
+        # This prevents sending 3000+ rows every morning while keeping latest results updated
+        if len(df) > 100:
+            print(f"[INFO] Delta Sync actif : Envoi des 100 derniers paris uniquement.")
+            df = df.tail(100)
+            
         if count_before > count_after:
             print(f"[INFO] {count_before - count_after} doublons supprimés du CSV avant envoi.")
             # Optionnel : Sauvegarder le CSV propre

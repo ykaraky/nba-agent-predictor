@@ -53,6 +53,11 @@ def sync_games():
     print(f"📖 Lecture du fichier de stats: {csv_path}...")
     try:
         df = pd.read_csv(csv_path)
+        # DELTA OPTIMIZATION: Only sync the last 200 rows (approx 100 matches)
+        # This keeps Supabase light while preserving all historical data in the cloud (upsert)
+        if len(df) > 200:
+            print(f"⚡ Delta Sync: Traitement des 200 dernières lignes uniquement.")
+            df = df.tail(200)
     except Exception as e:
         print(f"❌ Erreur lecture CSV: {e}")
         return

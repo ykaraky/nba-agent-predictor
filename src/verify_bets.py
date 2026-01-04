@@ -27,27 +27,51 @@ def verify():
         return
 
     df = pd.read_csv(HISTORY_FILE)
+    updates = 0
+
+    # --- ÉTAPE 0 : RÉPARATION OFFLINE ---
+    # Si on a déjà le Real_Winner mais qu'on a oublié de calculer le GAGNE/PERDU localement
+    mask_fixable_ia = (df['Real_Winner'].notna() & (df['Real_Winner'] != "")) & (df['Result'].isna() | (df['Result'] == ""))
+    mask_fixable_user = (df['Real_Winner'].notna() & (df['Real_Winner'] != "")) & (df['User_Prediction'].notna() & (df['User_Prediction'] != "")) & (df['User_Result'].isna() | (df['User_Result'] == ""))
     
-    # 1. Identifier les matchs sans résultat (ou marqués 'En attente')
+    fix_indices = df[mask_fixable_ia | mask_fixable_user].index
+    if len(fix_indices) > 0:
+        print(f"[REPARATION] {len(fix_indices)} lignes à recalculer hors-ligne...")
+        for idx in fix_indices:
+            real_w = df.at[idx, 'Real_Winner']
+            # IA
+            if pd.isna(df.at[idx, 'Result']) or df.at[idx, 'Result'] == "":
+                pred_ia = df.at[idx, 'Predicted_Winner']
+                df.at[idx, 'Result'] = "GAGNE" if pred_ia == real_w else "PERDU"
+            # User
+            if pd.isna(df.at[idx, 'User_Result']) or df.at[idx, 'User_Result'] == "":
+                u_pred = df.at[idx, 'User_Prediction']
+                if pd.notna(u_pred) and u_pred != "":
+                    df.at[idx, 'User_Result'] = "GAGNE" if u_pred == real_w else "PERDU"
+        updates += len(fix_indices)
+
+    # --- ÉTAPE 1 : IDENTIFIER LES MATCHS VRAIMENT VIDE (API) ---
     # On regarde si Real_Winner est vide ou null
     mask_pending = df['Real_Winner'].isna() | (df['Real_Winner'] == "") | (df['Real_Winner'] == "En attente...")
     
-    # On ne garde que les dates passées (pour ne pas vérifier les matchs futurs)
+    # On ne garde que les dates passées
     today_str = datetime.now().strftime('%Y-%m-%d')
     mask_date = df['Date'] < today_str
     
     pending_indices = df[mask_pending & mask_date].index
     
     if len(pending_indices) == 0:
-        print("[INFO] Aucun match passé en attente de résultat.")
+        if updates > 0:
+            df.to_csv(HISTORY_FILE, index=False)
+            print(f"[SUCCES] Recalcul terminé ({updates} lignes).")
+        else:
+            print("[INFO] Aucun match passé en attente de résultat.")
         return
 
-    print(f"[INFO] {len(pending_indices)} matchs à vérifier...")
-    
+    print(f"[INFO] {len(pending_indices)} matchs à vérifier via API...")
+    # ... (reste du code API inchangé)
     # Récupérer les dates uniques concernées pour ne pas spammer l'API
     dates_to_check = df.loc[pending_indices, 'Date'].unique()
-    
-    updates = 0
     
     for d_str in dates_to_check:
         print(f"   -> Scan API pour le {d_str}...")
@@ -66,30 +90,7 @@ def verify():
                 print("      (Pas de données API)")
                 continue
 
-            # Création d'un dico des gagnants pour cette date
-            # Key: GameID, Value: WinnerName
-            winners_map = {}
-            
-            # On groupe par GameID pour trouver qui a gagné
-            games_groups = results.groupby('GAME_ID')
-            
-            for gid, rows in games_groups:
-                # On cherche la ligne avec WL = 'W'
-                winner_row = rows[rows['WL'] == 'W']
-                if not winner_row.empty:
-                    w_team_id = int(winner_row.iloc[0]['TEAM_ID'])
-                    # On traduit l'ID en Nom Complet (comme dans le CSV)
-                    if w_team_id in TEAMS_DB:
-                        w_name = TEAMS_DB[w_team_id]['full']
-                        gid_clean = clean_id(gid)
-                        winners_map[gid_clean] = w_name
-
-            # Mise à jour du DataFrame
-            # Pour chaque ligne du CSV à cette date, on essaie de trouver le vainqueur
-            # Problème : Le CSV n'a pas le GameID. On doit matcher par Noms d'équipe.
-            
             # On construit un mapping Nom -> Resultat depuis l'API pour cette date
-            # Dict: {NomTeam: "Gagné/Perdu"}
             team_results_day = {}
             for _, r in results.iterrows():
                 tid = int(r['TEAM_ID'])
@@ -106,22 +107,15 @@ def verify():
                     pred_ia = df.at[idx, 'Predicted_Winner']
                     
                     real_winner = None
-                    
-                    # Qui a gagné ?
                     if team_results_day.get(home) == 'W': real_winner = home
                     elif team_results_day.get(away) == 'W': real_winner = away
                     
                     if real_winner:
                         df.at[idx, 'Real_Winner'] = real_winner
-                        
-                        # Check IA
                         df.at[idx, 'Result'] = "GAGNE" if pred_ia == real_winner else "PERDU"
-                        
-                        # Check User (si vote existant)
                         user_pred = df.at[idx, 'User_Prediction']
                         if pd.notna(user_pred) and user_pred != "":
                             df.at[idx, 'User_Result'] = "GAGNE" if user_pred == real_winner else "PERDU"
-                            
                         updates += 1
                         print(f"      [MAJ] {home} vs {away} -> Vainqueur: {real_winner}")
 
@@ -132,9 +126,11 @@ def verify():
 
     if updates > 0:
         df.to_csv(HISTORY_FILE, index=False)
-        print(f"\n[SUCCES] {updates} résultats mis à jour dans le CSV.")
+        print(f"\n[SUCCES] {updates} résultats mis à jour au total.")
     else:
         print("\n[INFO] Rien à mettre à jour.")
+if __name__ == "__main__":
+    verify()
 
 if __name__ == "__main__":
     verify()
