@@ -1,5 +1,8 @@
 import subprocess
+import os
 import sys
+# Forces le dossier de travail sur celui du script
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import time
 from datetime import datetime
 
@@ -7,7 +10,10 @@ def check_games_finished():
     """Vérifie si les matchs d'hier sont terminés via l'API NBA"""
     print("\n🔍 Vérification de l'état des matchs...")
     try:
-        result = subprocess.run([sys.executable, "check_status.py"], 
+        import os # Security
+        # On cherche d'abord dans src/ (le dossier normal de la V0)
+        script_check = "src/check_status.py" if os.path.exists("src/check_status.py") else "check_status.py"
+        result = subprocess.run([sys.executable, script_check], 
                               capture_output=True, text=True, timeout=30)
         
         # Si le script retourne 0, les matchs sont finis
